@@ -3,15 +3,15 @@
 # loader into Discord, and a desktop entry for it. Discord's own files stay
 # untouched, so its updates never undo Ruby.
 #
-#   RUBY_SITE=http://127.0.0.1:8000 sh scripts/ruby-linux.sh
-#   RUBY_SITE=http://127.0.0.1:8000 sh scripts/ruby-linux.sh /path/to/Discord.AppImage
-#   RUBY_SITE=http://127.0.0.1:8000 sh scripts/ruby-linux.sh --no-runtime
-#   RUBY_SITE=http://127.0.0.1:8000 sh scripts/ruby-linux.sh --uninstall
-#
-# RUBY_SITE points it at a local server for testing.
+# CI publishes this script with libphoenix.so appended after the __PAYLOAD__ line, as the one
+# file people download (ruby_discord_client-linux):
+#   chmod +x ruby_discord_client-linux && ./ruby_discord_client-linux
+#   ./ruby_discord_client-linux /path/to/Discord.AppImage
+#   ./ruby_discord_client-linux --no-runtime
+#   ./ruby_discord_client-linux --uninstall
+# From a checkout, RUBY_LOADER=/path/to/libphoenix.so sh scripts/ruby-linux.sh does the same.
 set -eu
 
-site=${RUBY_SITE:-}
 data=${XDG_DATA_HOME:-$HOME/.local/share}
 home=$data/ruby
 entry=$data/applications/ruby.desktop
@@ -29,17 +29,6 @@ while [ "${1:-}" = --no-runtime ] || [ "${1:-}" = --gate-only ]; do
    shift
 done
 
-# What the site serves is loaded into Discord, so only https, or plain http to
-# this machine for testing.
-case $site in
-   https://*) proto==https ;;
-   http://127.0.0.1 | http://127.0.0.1[:/]* | http://localhost | http://localhost[:/]*) proto==http ;;
-   *)
-      echo "RUBY_SITE must be https:// or a localhost server, not $site" >&2
-      exit 1
-      ;;
-esac
-
 # LD_PRELOAD splits on spaces and colons, and the desktop entry's Exec= would
 # need escaping for the rest.
 case $home in
@@ -49,7 +38,7 @@ case $home in
       ;;
 esac
 
-script="curl -fsSL $site/plugins/ruby-linux.sh | sh -s --"
+script=$0
 discord=${1:-}
 if [ -n "$discord" ] && [ ! -f "$discord" ]; then
    echo "No file at $discord. Pass the path of Discord Phoenix's AppImage:" >&2
@@ -83,26 +72,10 @@ echo "Using Discord Phoenix at $discord"
 q() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
 
 mkdir -p "$home" "$data/applications"
-# The launcher brings the loader up to the site's version before each start,
-# and keeps the one it has when offline. Each run downloads to its own file, so
-# two starts at once never load a half-written one.
+# The launcher preloads the loader installed beside it.
 cat >"$home/ruby" <<EOF
 #!/bin/sh
 home=$(q "$home")
-site=$(q "$site")
-fetch() { curl -fsSL --proto $proto --proto-redir =https "\$@" 2>/dev/null; }
-version=\$(fetch --max-time 5 "\$site/version.json" |
-   sed -n 's/.*"loader": *"\([^"]*\)".*/\1/p')
-if [ -n "\$version" ] && [ "\$version" != "\$(cat "\$home/version" 2>/dev/null)" ]; then
-   tmp=\$(mktemp "\$home/libphoenix.so.XXXXXX")
-   if fetch --max-time 60 -o "\$tmp" "\$site/plugins/libphoenix-linux-x86_64.so"; then
-      mv "\$tmp" "\$home/libphoenix.so"
-      echo "\$version" >"\$home/version"
-   else
-      rm -f "\$tmp"
-   fi
-fi
-[ "\${1:-}" = --update ] && exit 0
 while [ "\${1:-}" = --no-runtime ] || [ "\${1:-}" = --gate-only ]; do
    export RUBY_GATE_ONLY=1
    shift
@@ -159,14 +132,19 @@ Categories=Network;InstantMessaging;
 EOF
 command -v update-desktop-database >/dev/null && update-desktop-database "$data/applications" || true
 
-# First download now, so a missing network shows up here rather than as a
-# Discord without Ruby.
-echo "Downloading Ruby..."
-rm -f "$home/version"
-"$home/ruby" --update
-if [ -f "$home/libphoenix.so" ]; then
-   echo "Ruby is installed. Open \"Ruby\" from your app menu to start Discord with it."
+# The loader: appended to this file by CI, or named by RUBY_LOADER.
+rm -f "$home/libphoenix.so"
+if [ -n "${RUBY_LOADER:-}" ]; then
+   cp "$RUBY_LOADER" "$home/libphoenix.so"
 else
-   echo "Installed, but downloading Ruby failed. It will retry each time you open it." >&2
+   start=$(grep -a -n -m1 '^__PAYLOAD__$' "$0" | cut -d: -f1 || true)
+   if [ -z "$start" ]; then
+      echo "This copy has no loader attached. Download ruby_discord_client-linux from the releases, or set RUBY_LOADER." >&2
+      exit 1
+   fi
+   tail -n +"$((start + 1))" "$0" >"$home/libphoenix.so"
 fi
+chmod +x "$home/libphoenix.so"
+echo "Ruby is installed. Open \"Ruby\" from your app menu to start Discord with it."
 echo "It runs Discord from $discord: if you move or replace that file, run this again."
+exit 0

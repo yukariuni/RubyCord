@@ -4,24 +4,30 @@ Patches Discord Phoenix (Discord's native Rust client) on Android, iOS, Windows,
 
 No root, no Xposed, and on desktop Discord's own files stay untouched.
 
-## How to use (Windows)
+## How to use
 
-1. Install Discord Phoenix and the [Rust](https://rustup.rs) toolchain.
-2. Build the loader and the launcher:
-   ```powershell
-   $env:RUSTFLAGS = "-C target-feature=+crt-static"
-   cargo build --release -p phoenix-loader -p phoenix-inject
-   ```
-3. Quit Discord Phoenix completely (tray icon too), then run `target\release\phoenix-inject.exe` once with no arguments.
-   It installs itself to `%LOCALAPPDATA%\Ruby`, copies `phoenix.dll` from beside it, points your **Discord Phoenix** Start Menu and Desktop shortcuts at the launcher, and starts Discord with Ruby loaded.
-4. From then on, open **Discord Phoenix** from the Start Menu as usual. After rebuilding, run `phoenix-inject.exe` again to refresh the DLL.
-5. In Discord open User Settings → **Ruby**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
+Every push to `main` builds the two downloads on the **latest** release (Releases page). Download one, quit Discord Phoenix, run it.
+
+**Windows**: run `ruby_discord_client.exe`. It installs itself to `%LOCALAPPDATA%\Ruby`, points your **Discord Phoenix** Start Menu and Desktop shortcuts at itself, and starts Discord with Ruby loaded. From then on open **Discord Phoenix** as usual. (The file is unsigned, so SmartScreen asks once: More info → Run anyway.)
+
+**Linux**: `chmod +x ruby_discord_client-linux && ./ruby_discord_client-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **Ruby** entry to your app menu.
+
+Then in Discord open User Settings → **Ruby**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
-- A pinned taskbar icon keeps its old target: unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, run `phoenix-inject.exe` again. A `discord://` link or Windows startup entry starts Discord without Ruby.
-- `phoenix-inject.exe --uninstall` removes Ruby and points the shortcuts back at `Discord.exe`. Discord's own files are never modified.
-- The **Ruby (access gate only)** shortcut starts Discord without plugins, in case a Discord update breaks the runtime.
-- `.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with Ruby in one step (see AGENTS.md).
+- Windows: a pinned taskbar icon keeps its old target, so unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, run the exe again. A `discord://` link or Windows startup entry starts Discord without Ruby.
+- To update, download the new file and run it again.
+- `ruby_discord_client.exe --uninstall` (Windows) or `./ruby_discord_client-linux --uninstall` removes Ruby; Discord's own files are never modified.
+- The **Ruby (access gate only)** entry starts Discord without plugins, in case a Discord update breaks the runtime.
+
+### Building it yourself (Windows)
+
+```powershell
+$env:RUSTFLAGS = "-C target-feature=+crt-static"
+cargo build --release -p phoenix-loader -p phoenix-inject
+.\target\release\phoenix-inject.exe   # beside phoenix.dll, which it installs
+```
+`.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with Ruby in one step (see AGENTS.md).
 
 ### Plugins and themes
 
@@ -31,7 +37,7 @@ Notes:
 ### Other platforms
 
 - **Android / iOS**: `crates/patcher` patches and signs the APK or IPA (`nu scripts/phoenix.nu` on Linux).
-- **Linux / macOS**: `RUBY_SITE=<server> sh scripts/ruby-linux.sh` or `ruby-macos.sh`, against a server that hosts the loader.
+- **macOS**: `RUBY_SITE=<server> sh scripts/ruby-macos.sh`, against a server that hosts the loader. No CI build yet.
 
 Ruby has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
 

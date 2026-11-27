@@ -1,0 +1,68 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the loader, then the launcher with it embedded
+        shell: pwsh
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: |
+          cargo build --locked --release -p phoenix-loader
+          $env:RUBY_LOADER_DLL = "$PWD\target\release\phoenix.dll"
+          cargo build --locked --release -p phoenix-inject
+          Copy-Item target\release\phoenix-inject.exe ruby_discord_client.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: ruby_discord_client.exe
+          if-no-files-found: error
+
+  # Ubuntu 22.04 links against an older glibc than Discord's AppImage needs, so the loader works anywhere Discord does.
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --locked --release -p phoenix-loader
+      - name: One file: the installer script with the loader appended
+        run: |
+          { cat scripts/ruby-linux.sh; echo __PAYLOAD__; cat target/release/libphoenix.so; } > ruby_discord_client-linux
+          chmod +x ruby_discord_client-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: ruby_discord_client-linux
+          if-no-files-found: error
+
+  # One rolling "latest" release, replaced on every push, so the download link never changes.
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Ruby (latest build)" --notes "Built from $GITHUB_SHA" \
+            dist/ruby_discord_client.exe dist/ruby_discord_client-linux

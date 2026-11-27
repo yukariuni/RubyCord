@@ -539,9 +539,31 @@ mod windows {
       Ok(dll)
    }
 
-   /// Replaces `dll` with the `phoenix.dll` beside `launcher` when that one is newer. A running
-   /// Discord keeps the old one mapped, which Windows lets us rename but not overwrite.
+   /// The loader built into this launcher by CI, empty in a plain build.
+   static EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/phoenix.dll"));
+
+   /// Puts `write`'s file at `dll`. A running Discord keeps the old one mapped, which Windows
+   /// lets us rename but not overwrite.
+   fn swap(dll: &Path, write: impl FnOnce(&Path) -> io::Result<()>) -> io::Result<()> {
+      let old = dll.with_extension("dll.old");
+      let _ = fs::remove_file(&old);
+      if dll.is_file() {
+         fs::rename(dll, &old)?;
+      }
+      write(dll)?;
+      let _ = fs::remove_file(old);
+      Ok(())
+   }
+
+   /// Installs the loader built into this launcher, or else the `phoenix.dll` beside it when
+   /// that one is newer.
    fn adopt(launcher: &Path, dll: &Path) -> io::Result<()> {
+      if !EMBEDDED.is_empty() {
+         if fs::read(dll).is_ok_and(|have| have == EMBEDDED) {
+            return Ok(());
+         }
+         return swap(dll, |path| fs::write(path, EMBEDDED));
+      }
       let Some(beside) = launcher.parent().map(|dir| dir.join("phoenix.dll")) else {
          return Ok(());
       };
@@ -552,14 +574,7 @@ mod windows {
       if dll.is_file() && modified(&beside)? <= modified(dll)? {
          return Ok(());
       }
-      let old = dll.with_extension("dll.old");
-      let _ = fs::remove_file(&old);
-      if dll.is_file() {
-         fs::rename(dll, &old)?;
-      }
-      fs::copy(&beside, dll)?;
-      let _ = fs::remove_file(old);
-      Ok(())
+      swap(dll, |path| fs::copy(&beside, path).map(drop))
    }
 
    fn same_file(a: &Path, b: &Path) -> bool {

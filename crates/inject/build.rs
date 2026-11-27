@@ -1,4 +1,5 @@
-#[path = "../loader/winres.rs"] mod winres;
+#[path = "../loader/winres.rs"]
+mod winres;
 
 /// Runs without elevation, and tells Windows it knows Windows 10, so no
 /// compatibility shims apply.
@@ -20,6 +21,21 @@ const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?
 "#;
 
 fn main() {
+   // CI builds the loader first and points this at it, so the launcher is one file. A plain
+   // build embeds nothing and falls back to the `phoenix.dll` beside the launcher.
+   println!("cargo:rerun-if-env-changed=RUBY_LOADER_DLL");
+   let out =
+      std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR")).join("phoenix.dll");
+   match std::env::var_os("RUBY_LOADER_DLL") {
+      Some(dll) => {
+         println!(
+            "cargo:rerun-if-changed={}",
+            std::path::Path::new(&dll).display()
+         );
+         std::fs::copy(&dll, &out).expect("copying RUBY_LOADER_DLL");
+      },
+      None => std::fs::write(&out, []).expect("writing the empty loader"),
+   }
    winres::embed(
       winres::Kind::App,
       "ruby.exe",

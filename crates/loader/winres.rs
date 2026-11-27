@@ -3,12 +3,7 @@
 //! process as droppers. Shared by the loader's and the launcher's build
 //! scripts.
 
-use std::{
-   env,
-   fs,
-   path::PathBuf,
-   process::Command,
-};
+use std::{env, fs, path::PathBuf, process::Command};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code, reason = "each build script uses one kind")]
@@ -34,14 +29,18 @@ pub fn embed(kind: Kind, file_name: &str, description: &str, manifest: Option<&s
       *part = text.parse().unwrap_or(0);
    }
    let version = format!("{}.{}.{}.{}", parts[0], parts[1], parts[2], parts[3]);
-   let info = version_info(kind, parts, &[
-      ("CompanyName", "Ruby"),
-      ("FileDescription", description),
-      ("FileVersion", &version),
-      ("OriginalFilename", file_name),
-      ("ProductName", "Ruby"),
-      ("ProductVersion", &version),
-   ]);
+   let info = version_info(
+      kind,
+      parts,
+      &[
+         ("CompanyName", "Ruby"),
+         ("FileDescription", description),
+         ("FileVersion", &version),
+         ("OriginalFilename", file_name),
+         ("ProductName", "Ruby"),
+         ("ProductVersion", &version),
+      ],
+   );
 
    // The empty entry every `.res` file starts with.
    let mut res: Vec<u8> = [0u32, 32, 0xFFFF, 0xFFFF]
@@ -169,8 +168,14 @@ fn version_info(kind: Kind, parts: [u16; 4], strings: &[(&str, &str)]) -> Vec<u8
       .collect();
    let table = node("040904B0", 0, true, &[], &strings);
    let translation = node("Translation", 4, false, &[0x09, 0x04, 0xB0, 0x04], &[]);
-   node("VS_VERSION_INFO", fixed.len(), false, &fixed, &[
-      node("StringFileInfo", 0, true, &[], &[table]),
-      node("VarFileInfo", 0, true, &[], &[translation]),
-   ])
+   node(
+      "VS_VERSION_INFO",
+      fixed.len(),
+      false,
+      &fixed,
+      &[
+         node("StringFileInfo", 0, true, &[], &[table]),
+         node("VarFileInfo", 0, true, &[], &[translation]),
+      ],
+   )
 }
