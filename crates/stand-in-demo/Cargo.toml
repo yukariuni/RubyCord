@@ -1,0 +1,13 @@
+[package]
+name = "stand-in-demo"
+description = "End-to-end check: load the stand-in, inject the loader, dispatch gateway frames"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+libc    = { workspace = true }
+misstep = { workspace = true }
+
+[lints]
+workspace = true

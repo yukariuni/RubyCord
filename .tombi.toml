@@ -1,0 +1,17 @@
+toml-version = "v1.0.0"
+
+[format.rules]
+array-bracket-space-width       = 1
+key-value-equals-sign-alignment = true
+line-width                      = 100
+
+[[schemas]]
+toml-version                            = "v1.0.0"
+path                                    = "tombi://www.schemastore.org/cargo.json"
+include                                 = [ "**/Cargo.toml" ]
+format.rules.array-values-order.enabled = false
+format.rules.table-keys-order.enabled   = false
+
+[[schemas.overrides]]
+targets                       = [ "dependencies", "workspace.dependencies" ]
+format.rules.table-keys-order = "ascending"

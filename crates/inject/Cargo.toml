@@ -1,0 +1,12 @@
+[package]
+name = "phoenix-inject"
+description = "Starts Desktop Phoenix with phoenix.dll loaded"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+misstep = { workspace = true }
+
+[lints]
+workspace = true

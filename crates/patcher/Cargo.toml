@@ -1,0 +1,22 @@
+[package]
+name = "patcher"
+description = "Patches Discord's split APKs to load phoenix inside Phoenix"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+crc32fast    = { workspace = true }
+flate2       = { default-features = false, features = [ "zlib-rs" ], version = "1" }
+flub         = { workspace = true }
+libpokedex   = { default-features = false, version = "0.2" }
+memchr       = { workspace = true }
+misstep      = { workspace = true }
+object       = { workspace = true }
+phoenix-sigs = { features = [ "file" ], workspace = true }
+rsa          = { default-features = false, features = [ "sha2", "std" ], version = "0.9" }
+serde_json   = { workspace = true }
+sha2         = { default-features = false, version = "0.10" }
+
+[lints]
+workspace = true

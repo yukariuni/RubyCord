@@ -1,0 +1,22 @@
+[package]
+name              = "phoenix-hook"
+description       = "Inline hooks plus a byte-pattern scanner over loaded images"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+flub   = { workspace = true }
+memchr = { workspace = true }
+
+[target.'cfg(any(target_arch = "x86_64", target_os = "macos"))'.dependencies]
+iced-x86 = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[target.'cfg(all(target_os = "android", any(target_arch = "aarch64", target_arch = "arm")))'.dependencies]
+sunhook-sys = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name              = "phoenix-wire"
+description       = "Codec for the tagged values and frames on Phoenix's guest/host bridge"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+flub = { workspace = true }
+
+[lints]
+workspace = true

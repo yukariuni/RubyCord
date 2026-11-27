@@ -1,0 +1,23 @@
+[package]
+name              = "phoenix-runtime-desktop"
+description       = "phoenix on Desktop Phoenix: GPUI settings and accessories, the HTTP transport hooks and the tray"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[target.'cfg(any(windows, target_os = "macos", all(target_os = "linux", target_arch = "x86_64")))'.dependencies]
+flub               = { workspace = true }
+log                = { workspace = true }
+phoenix-hook       = { workspace = true }
+phoenix-runtime    = { features = [ "sqlite" ], workspace = true }
+phoenix-sigs       = { workspace = true }
+phoenix-ui-desktop = { workspace = true }
+rquickjs           = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+
+[target.'cfg(any(target_os = "macos", all(target_os = "linux", target_arch = "x86_64")))'.dependencies]
+libc = { workspace = true }
+
+[lints]
+workspace = true

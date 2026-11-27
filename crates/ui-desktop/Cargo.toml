@@ -1,0 +1,13 @@
+[package]
+name              = "phoenix-ui-desktop"
+description       = "Desktop UI host primitives for Phoenix (clipboard, URLs, notifications, GPUI surface hooks)"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+flub = { workspace = true }
+log  = { workspace = true }
+
+[lints]
+workspace = true

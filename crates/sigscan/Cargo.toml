@@ -1,0 +1,14 @@
+[package]
+name = "sigscan"
+description = "Dumps the gateway registry phoenix would hook in a library file"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+misstep      = { workspace = true }
+phoenix-hook = { workspace = true }
+phoenix-sigs = { features = [ "file" ], workspace = true }
+
+[lints]
+workspace = true

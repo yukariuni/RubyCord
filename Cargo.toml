@@ -1,0 +1,86 @@
+[workspace]
+members  = [
+  "crates/hook",
+  "crates/inject",
+  "crates/loader",
+  "crates/patcher",
+  "crates/patcher-web",
+  "crates/runtime",
+  "crates/runtime-desktop",
+  "crates/runtime-mobile",
+  "crates/sigs",
+  "crates/sigscan",
+  "crates/stand-in",
+  "crates/stand-in-demo",
+  "crates/ui-desktop",
+  "crates/ui-mobile",
+  "crates/wire",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "EUPL-1.2"
+version = "0.1.0"
+
+[workspace.dependencies]
+android_logger          = { default-features = false, version = "0.15" }
+crc32fast               = "1"
+flub                    = "0.1"
+iced-x86                = { default-features = false, features = [
+  "block_encoder",
+  "decoder",
+  "encoder",
+  "instr_info",
+  "intel",
+  "std"
+], version = "1.22" }
+jni-sys                 = "0.4"
+libc                    = "0.2"
+log                     = "0.4"
+memchr                  = "2"
+misstep                 = { features = [ "panic-hook", "pretty" ], version = "0.4.1" }
+object                  = { default-features = false, features = [ "elf", "macho", "pe", "read_core", "std" ], version = "0.41" }
+patcher                 = { path = "crates/patcher" }
+phoenix-hook            = { path = "crates/hook" }
+phoenix-runtime         = { path = "crates/runtime" }
+phoenix-runtime-desktop = { path = "crates/runtime-desktop" }
+phoenix-runtime-mobile  = { path = "crates/runtime-mobile" }
+phoenix-sigs            = { path = "crates/sigs" }
+phoenix-ui-desktop      = { path = "crates/ui-desktop" }
+phoenix-ui-mobile       = { path = "crates/ui-mobile" }
+phoenix-wire            = { path = "crates/wire" }
+rquickjs                = { features = [ "parallel" ], version = "0.14" }
+rusqlite                = { default-features = false, features = [ "bundled" ], version = "0.43" }
+serde                   = { features = [ "derive" ], version = "1" }
+serde_json              = { features = [ "raw_value" ], version = "1" }
+sunhook-sys             = { git = "https://github.com/sunbird-tools/sunhook" }
+zip                     = { default-features = false, version = "9" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+nursery  = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[profile.release]
+codegen-units = 1
+lto           = "fat"
+panic         = "unwind"
+strip         = true
+
+[profile.dev-fast]
+inherits      = "release"
+codegen-units = 16
+lto           = false
+opt-level     = 1
+strip         = "debuginfo"
+
+# wasm-bindgen reads the target_features section that strip removes.
+[profile.wasm]
+inherits = "release"
+strip    = false

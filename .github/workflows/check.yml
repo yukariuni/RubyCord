@@ -1,0 +1,59 @@
+name: check
+# Runs every locator the runtime uses (`sigscan check`) against current Discord
+# builds, so an update that breaks one shows up here before users hit it.
+# Android builds are the tracker's latest alpha, the channel Phoenix ships on.
+# Desktop Phoenix sits behind Discord's tester access, so it is checked only when
+# the DISCORD_EXE_URL repository variable points at a copy of its Discord.exe.
+on:
+  pull_request:
+    paths: ['crates/hook/**', 'crates/sigs/**', 'crates/sigscan/**', 'crates/loader/**', 'Cargo.*', 'flake.*', '.github/workflows/check.yml']
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  TRACKER: https://tracker.vendetta.rocks/tracker
+jobs:
+  locators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - run: nix develop --command cargo test --release -p phoenix-hook -p phoenix-sigs
+      - run: nix develop --command cargo build --release -p sigscan
+      - name: sigscan check
+        env:
+          DESKTOP: ${{ vars.DISCORD_EXE_URL }}
+        run: |
+          missed=0
+          check() {
+            echo "::group::$1"
+            target/release/sigscan "$2" check || { missed=1; echo "::error::$1: a locator missed"; }
+            echo "::endgroup::"
+          }
+          alpha=$(curl -fsS "$TRACKER/index" | jq -r .latest.alpha)
+          for abi in arm64_v8a armeabi_v7a; do
+            curl -fsSL "$TRACKER/download/$alpha/config.$abi" -o split.apk
+            unzip -p split.apk "lib/${abi/_/-}/liblibdiscord_wasm_host.so" > "$abi.so"
+            check "$alpha $abi" "$abi.so"
+          done
+          if [ -n "$DESKTOP" ]; then
+            curl -fsSL "$DESKTOP" -o Discord.exe
+            check desktop Discord.exe
+          else
+            echo "::notice::DISCORD_EXE_URL is unset, desktop skipped"
+          fi
+          exit $missed
+  # The macOS loader opens Desktop Phoenix's access gate by rewriting signed
+  # code, which only a Mac can build and test.
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: cargo test --locked --release -p phoenix-hook -p phoenix-sigs -p phoenix-loader
+      - run: cargo build --locked --release -p phoenix-loader

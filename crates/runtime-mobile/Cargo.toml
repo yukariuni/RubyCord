@@ -1,0 +1,30 @@
+[package]
+name              = "phoenix-runtime-mobile"
+description       = "phoenix on Phoenix's mobile clients: the UI-op bridge, settings pages and UI patches"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+flub              = { workspace = true }
+log               = { workspace = true }
+memchr            = { workspace = true }
+phoenix-hook      = { workspace = true }
+phoenix-runtime   = { workspace = true }
+phoenix-sigs      = { workspace = true }
+phoenix-ui-mobile = { workspace = true }
+phoenix-wire      = { workspace = true }
+rquickjs          = { workspace = true }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
+libc              = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni-sys = { workspace = true }
+patcher = { workspace = true }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+phoenix-runtime = { features = [ "sqlite" ], workspace = true }
+
+[lints]
+workspace = true

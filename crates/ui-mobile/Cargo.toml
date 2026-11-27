@@ -1,0 +1,15 @@
+[package]
+name              = "phoenix-ui-mobile"
+description       = "Mobile (Android/iOS) codec for Phoenix UI-op batches and view-event dispatch frames"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+flub         = { workspace = true }
+phoenix-wire = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+
+[lints]
+workspace = true

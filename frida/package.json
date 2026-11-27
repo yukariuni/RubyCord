@@ -1,0 +1,13 @@
+{
+  "name": "phoenix-frida-bootstrap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@frida/buffer": "7.1.0",
+    "esbuild": "0.28.2",
+    "frida-java-bridge": "7.1.0"
+  }
+}

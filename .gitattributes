@@ -1,0 +1,7 @@
+# GitHub's language bar skips these, and so do the contributor line counts.
+plugin/rquickjs-sys/** linguist-vendored
+plugin/hook/shadowhook/** linguist-vendored
+web/plugins/frida-* linguist-vendored
+**/bindings/*-linux-android.rs linguist-generated
+docs/phoenix-* linguist-generated
+*.lock linguist-generated

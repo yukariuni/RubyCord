@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  checks:
+    name: Checks
+    uses: manic-systems/workflows/.github/workflows/rust-checks.yml@02fcd089a850e25bc6eff55f74db80c12b54391e # v2.3.4
+    with:
+      os: ubuntu-latest
+      flake-check: false
+      clippy: true
+      clippy-command: |
+        cargo clippy --locked --workspace --all-targets -- -D warnings
+        sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+        env "BINDGEN_EXTRA_CLANG_ARGS_aarch64-linux-android=--target=aarch64-linux-android28 --sysroot=$sysroot" \
+          cargo ndk -t arm64-v8a -P 28 clippy --locked --workspace --exclude sigscan -- -D warnings
+        env "BINDGEN_EXTRA_CLANG_ARGS_armv7-linux-androideabi=--target=armv7-linux-androideabi28 --sysroot=$sysroot" \
+          cargo ndk -t armeabi-v7a -P 28 clippy --locked --workspace --exclude sigscan -- -D warnings
+      test: true
+      test-command: cargo test --locked --workspace && tsc -p plugins/tsconfig.json
+
+  ios:
+    name: iOS
+    uses: ./.github/workflows/ios.yml # zizmor: ignore[self-repository]
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal
+      - env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo +stable-x86_64-pc-windows-msvc build --locked --release -p phoenix-loader -p phoenix-inject
+
+  actions:
+    name: Actions Lint
+    uses: manic-systems/workflows/.github/workflows/actions-lint.yml@02fcd089a850e25bc6eff55f74db80c12b54391e # v2.3.4
+
+  required:
+    name: Required Checks
+    if: always()
+    needs:
+      - checks
+      - ios
+      - windows
+      - actions
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

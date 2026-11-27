@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ruby DevTools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23f59e0b'/><circle cx='16' cy='16' r='5' fill='%23fff3b0'/></svg>" />
+<style>
+  :root {
+    --bg: #17181b;
+    --bar: #1e1f23;
+    --row-line: #24262b;
+    --hover: #212328;
+    --border: #2e3036;
+    --text: #e3e5e8;
+    --muted: #80848e;
+    --faint: #5c6069;
+    --accent: #f5a524;
+    --info: #6aa9ff;
+    --warn: #e8b339;
+    --warn-bg: #2a2416;
+    --error: #ff6b6b;
+    --error-bg: #2c1a1c;
+    --ok: #3ccf7a;
+    --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 var(--sans);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-right: 6px; }
+  .brand i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px #f5a52426; }
+  .status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .status.off::before { background: var(--error); }
+  .spacer { flex: 1; }
+  .levels { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .levels button { border: 0; border-radius: 0; background: transparent; padding: 4px 10px; }
+  .levels button + button { border-left: 1px solid var(--border); }
+  .levels button[aria-pressed="true"] { background: #2b2d33; color: var(--text); }
+  button {
+    font: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  button:hover { color: var(--text); background: var(--hover); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="search"] {
+    font: inherit;
+    font-size: 12px;
+    width: 200px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  label.follow { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; cursor: pointer; }
+  #console {
+    flex: 1;
+    overflow-y: auto;
+    font: 12px/1.5 var(--mono);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 10px;
+    padding: 2px 12px;
+    border-bottom: 1px solid var(--row-line);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .row:hover { background: var(--hover); }
+  .row .time { color: var(--faint); }
+  .row.warn { background: var(--warn-bg); color: var(--warn); }
+  .row.error { background: var(--error-bg); color: var(--error); }
+  .row.debug, .row.trace { color: var(--muted); }
+  .row .lvl { font-weight: 600; margin-right: 6px; }
+  .row.info .lvl { color: var(--info); }
+  .row.input { color: var(--text); }
+  .row.result { color: #b9c0cc; }
+  .row.result.failed { color: var(--error); background: var(--error-bg); }
+  .row.note { color: var(--faint); font-style: italic; }
+  .hidden { display: none !important; }
+  footer {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bar);
+    border-top: 1px solid var(--border);
+  }
+  footer span { color: var(--accent); font: 600 13px/1.5 var(--mono); padding-top: 3px; }
+  #prompt {
+    flex: 1;
+    resize: none;
+    min-height: 26px;
+    max-height: 40vh;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    padding: 3px 0;
+    font: 12px/1.5 var(--mono);
+  }
+  #prompt:focus-visible { outline: none; }
+  footer small { color: var(--faint); font-size: 11px; padding-top: 5px; white-space: nowrap; }
+  @media (max-width: 640px) {
+    input[type="search"] { width: 120px; }
+    footer small { display: none; }
+    .row { grid-template-columns: 1fr; gap: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><i></i>Ruby DevTools</div>
+  <div class="status" id="status">Connected</div>
+  <div class="spacer"></div>
+  <div class="levels" role="group" aria-label="Log levels">
+    <button data-level="all" aria-pressed="true">All</button>
+    <button data-level="warn" aria-pressed="false">Warnings</button>
+    <button data-level="error" aria-pressed="false">Errors</button>
+  </div>
+  <input type="search" id="filter" placeholder="Filter" aria-label="Filter logs" />
+  <label class="follow"><input type="checkbox" id="follow" checked /> Follow</label>
+  <button id="clear" title="Clear the view">Clear</button>
+  <button id="reload" title="Reload every plugin">Reload plugins</button>
+</header>
+<div id="console" role="log" aria-live="polite"></div>
+<footer>
+  <span aria-hidden="true">›</span>
+  <textarea id="prompt" rows="1" spellcheck="false" aria-label="JavaScript to run in the plugin runtime"
+    placeholder="Run JavaScript in the plugin runtime, like Object.keys(phoenix)"></textarea>
+  <small>Enter runs · Shift+Enter new line · ↑↓ history</small>
+</footer>
+<script>
+const $ = (id) => document.getElementById(id);
+const view = $('console');
+const prompt = $('prompt');
+const RANK = { trace: 0, debug: 0, info: 1, warn: 2, error: 3 };
+let level = 'all';
+let known = [];
+let past = [];
+let at = 0;
+
+// The cookie the token set carries on, so it doesn't need to stay in the address bar.
+if (location.search) window.history.replaceState(null, '', location.pathname);
+try { past = JSON.parse(localStorage.getItem('ruby.past') || '[]'); } catch {}
+at = past.length;
+
+function setOnline(ok, why = '') {
+  $('status').classList.toggle('off', !ok);
+  $('status').textContent = ok ? 'Connected' : 'Disconnected' + (why ? ': ' + why : '');
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || res.statusText);
+  setOnline(true);
+  return text;
+}
+
+function visible(row) {
+  const rank = RANK[row.dataset.level];
+  if (level !== 'all' && rank !== undefined && rank < RANK[level]) return false;
+  if (level !== 'all' && rank === undefined) return false;
+  const query = $('filter').value.trim().toLowerCase();
+  return !query || row.textContent.toLowerCase().includes(query);
+}
+
+function add(kind, time, text, lvl) {
+  const follow = $('follow').checked;
+  const row = document.createElement('div');
+  row.className = 'row ' + kind;
+  row.dataset.level = lvl || '';
+  const left = document.createElement('span');
+  left.className = 'time';
+  left.textContent = time;
+  const body = document.createElement('span');
+  if (lvl && !/input|result/.test(kind)) {
+    const tag = document.createElement('span');
+    tag.className = 'lvl';
+    tag.textContent = lvl.toUpperCase();
+    body.append(tag);
+  }
+  body.append(text);
+  row.append(left, body);
+  row.classList.toggle('hidden', !visible(row));
+  view.append(row);
+  while (view.childElementCount > 5000) view.firstElementChild.remove();
+  if (follow) view.scrollTop = view.scrollHeight;
+  return row;
+}
+
+function parse(line) {
+  const match = /^(\S+) \[(\w+)\] ([\s\S]*)$/.exec(line);
+  return match ? { time: match[1], lvl: match[2].toLowerCase(), text: match[3] } : null;
+}
+
+let polling = null;
+let awaitingResult = false;
+
+// One poll at a time: two in flight would both append the same new lines.
+function poll() {
+  polling ??= pollOnce().finally(() => { polling = null; });
+  return polling;
+}
+
+async function pollOnce() {
+  try {
+    const lines = (await api('/logs')).split('\n').filter(Boolean);
+    // The runtime keeps a ring buffer, so new lines are the ones after the
+    // last one already shown.
+    let start = 0;
+    if (known.length) {
+      const index = lines.lastIndexOf(known[known.length - 1]);
+      start = index >= 0 ? index + 1 : 0;
+    }
+    for (const line of lines.slice(start)) {
+      const entry = parse(line);
+      if (!entry) {
+        view.lastElementChild?.lastElementChild.append('\n' + line);
+      } else if (entry.text.startsWith('> ')) {
+        // The runtime logs every eval as `> code`, then its result.
+        add('input', entry.time, '› ' + entry.text.slice(2), entry.lvl);
+        awaitingResult = true;
+      } else if (awaitingResult) {
+        awaitingResult = false;
+        const failed = entry.lvl === 'error';
+        add(failed ? 'result failed' : 'result', entry.time, '‹ ' + pretty(entry.text), entry.lvl);
+      } else {
+        add(entry.lvl, entry.time, entry.text, entry.lvl);
+      }
+    }
+    known = lines;
+  } catch (err) {
+    setOnline(false, err.message);
+  }
+}
+
+function pretty(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? JSON.stringify(parsed, null, 2) : raw;
+  } catch {
+    return raw;
+  }
+}
+
+async function run() {
+  const code = prompt.value;
+  if (!code.trim()) return;
+  if (past[past.length - 1] !== code) past.push(code);
+  past = past.slice(-100);
+  at = past.length;
+  try { localStorage.setItem('ruby.past', JSON.stringify(past)); } catch {}
+  prompt.value = '';
+  grow();
+  // The result reaches the view through the log, like every other line.
+  await api('/eval', { method: 'POST', body: code }).catch(() => {});
+  await poll();
+}
+
+function grow() {
+  prompt.style.height = 'auto';
+  prompt.style.height = prompt.scrollHeight + 'px';
+}
+
+prompt.addEventListener('input', grow);
+prompt.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    run();
+    return;
+  }
+  const first = !prompt.value.slice(0, prompt.selectionStart).includes('\n');
+  const last = !prompt.value.slice(prompt.selectionEnd).includes('\n');
+  if (event.key === 'ArrowUp' && first && at > 0) {
+    event.preventDefault();
+    prompt.value = past[--at];
+    grow();
+  } else if (event.key === 'ArrowDown' && last && at < past.length) {
+    event.preventDefault();
+    at += 1;
+    prompt.value = past[at] ?? '';
+    grow();
+  }
+});
+
+for (const button of document.querySelectorAll('.levels button')) {
+  button.onclick = () => {
+    level = button.dataset.level;
+    for (const other of document.querySelectorAll('.levels button')) {
+      other.setAttribute('aria-pressed', String(other === button));
+    }
+    refilter();
+  };
+}
+function refilter() {
+  for (const row of view.children) row.classList.toggle('hidden', !visible(row));
+}
+$('filter').addEventListener('input', refilter);
+$('clear').onclick = () => { view.replaceChildren(); };
+$('reload').onclick = async () => {
+  try {
+    await api('/plugins/reload-all', { method: 'POST' });
+    add('note', '', 'Reloaded every plugin');
+  } catch (err) {
+    add('result failed', '', 'Reload failed: ' + err.message);
+  }
+};
+
+poll();
+setInterval(() => { if (!document.hidden) poll(); }, 1500);
+prompt.focus();
+</script>
+</body>
+</html>

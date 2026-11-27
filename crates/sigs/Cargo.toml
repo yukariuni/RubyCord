@@ -1,0 +1,19 @@
+[package]
+name              = "phoenix-sigs"
+description       = "Phoenix's gateway registry walk and handler ABI"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[features]
+# ELF files from disk, for sigscan and the patcher. The loader leaves it off.
+file = [ "dep:object" ]
+
+[dependencies]
+flub         = { workspace = true }
+memchr       = { workspace = true }
+object       = { optional = true, workspace = true }
+phoenix-hook = { workspace = true }
+
+[lints]
+workspace = true
