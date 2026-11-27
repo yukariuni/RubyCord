@@ -130,6 +130,7 @@ pub fn prepare() -> Result<(), Error> {
    phoenix_runtime::set_platform(&Desktop);
    let image = phoenix_runtime::target()?;
    open_access_gate(&image);
+   phoenix_ui_desktop::hook_tray();
    settings::install(&image);
    #[cfg(windows)]
    restart::install(&image);

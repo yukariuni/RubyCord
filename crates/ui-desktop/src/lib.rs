@@ -9,6 +9,7 @@
 
 #[cfg(target_os = "linux")]
 mod linux;
+pub mod logo;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(windows)]
@@ -103,8 +104,11 @@ impl TrayAction {
    }
 
    #[cfg_attr(
-      not(any(windows, target_os = "linux", target_os = "macos")),
-      allow(dead_code, reason = "no tray backend on this target")
+      not(any(target_os = "linux", target_os = "macos")),
+      allow(
+         dead_code,
+         reason = "Windows has no tray menu of its own: Discord's tray is the only one"
+      )
    )]
    fn run(self) {
       let Some(config) = config() else {
@@ -151,7 +155,7 @@ trait DesktopHost {
       Err(Error::Unsupported)
    }
 
-   /// Asks for a file with extension `ext` (`js` or `css`) with the native picker.
+   /// Asks for a file with extension `ext` (`js` or `json`) with the native picker.
    fn pick_path(_ext: &str) -> Option<PathBuf> {
       None
    }
@@ -160,6 +164,9 @@ trait DesktopHost {
 
    /// Starts the tray and hotkeys after [`config`] is set.
    fn start_tray() {}
+
+   /// Takes over Discord's own tray icon, which is its only one. Runs before Discord starts.
+   fn hook_tray() {}
 }
 
 #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
@@ -172,6 +179,11 @@ static CONFIG: OnceLock<TrayConfig> = OnceLock::new();
 
 fn config() -> Option<&'static TrayConfig> {
    CONFIG.get()
+}
+
+/// Gives Discord's own tray icon the Ruby logo, where the OS has one. Call before Discord starts.
+pub fn hook_tray() {
+   Os::hook_tray();
 }
 
 /// Starts the desktop system tray icon, which opens `DevTools`.

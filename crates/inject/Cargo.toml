@@ -6,7 +6,8 @@ license.workspace = true
 version.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-misstep = { workspace = true }
+misstep            = { workspace = true }
+phoenix-ui-desktop = { workspace = true }
 
 [lints]
 workspace = true

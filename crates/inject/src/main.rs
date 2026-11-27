@@ -517,6 +517,11 @@ mod windows {
       if copied {
          fs::copy(&me, &launcher).context("copying the launcher")?;
       }
+      // The shortcuts' icon. A missing one only leaves them with Discord's.
+      let _ = fs::write(
+         home.join("ruby.ico"),
+         phoenix_ui_desktop::logo::ico(&[16, 32, 48, 64]),
+      );
       let dll = home.join("phoenix.dll");
       // Without a server the loader ships beside the launcher.
       adopt(&me, &dll).context("installing the phoenix.dll beside the launcher")?;

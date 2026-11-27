@@ -208,7 +208,10 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
       unsafe { CoInitializeEx(ptr::null_mut(), APARTMENT_THREADED) },
       "CoInitializeEx",
    )?;
-   let icon = local.join(r"DiscordPhoenix\app\Discord.exe");
+   let discord_icon = local.join(r"DiscordPhoenix\app\Discord.exe");
+   // The Ruby logo the launcher writes beside itself, or Discord's own icon without it.
+   let logo = launcher.with_file_name("ruby.ico");
+   let icon = if logo.is_file() { &logo } else { &discord_icon };
    // shortcut: Start Menu and Desktop only. A pinned taskbar icon keeps its old target until
    // it is pinned again from the Start Menu, and Discord's updater may recreate its shortcut,
    // so opening the launcher again redoes this.
@@ -217,8 +220,11 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
       desktop.join("Discord Phoenix.lnk"),
    ];
    for lnk in phoenix.iter().filter(|lnk| lnk.exists()) {
-      let target = if remove { &icon } else { launcher };
-      create(lnk, target, "", "Discord Phoenix", &icon)?;
+      if remove {
+         create(lnk, &discord_icon, "", "Discord Phoenix", &discord_icon)?;
+      } else {
+         create(lnk, launcher, "", "Discord Phoenix", icon)?;
+      }
    }
    if remove {
       for (lnk, ..) in &links {
@@ -226,10 +232,9 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
       }
       return Ok(());
    }
+   // Recreated each time, which also gives the ones from an older install the new icon.
    for (lnk, args, description) in &links {
-      if !lnk.exists() {
-         create(lnk, launcher, args, description, &icon)?;
-      }
+      create(lnk, launcher, args, description, icon)?;
    }
    Ok(())
 }

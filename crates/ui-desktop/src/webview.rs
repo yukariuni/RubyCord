@@ -41,7 +41,6 @@ unsafe extern "system" {
    fn GetWindowThreadProcessId(hwnd: *mut c_void, pid: *mut u32) -> u32;
    fn IsWindow(hwnd: *mut c_void) -> i32;
    fn IsWindowVisible(hwnd: *mut c_void) -> i32;
-   fn GetClassNameW(hwnd: *mut c_void, buf: *mut u16, max: i32) -> i32;
    fn GetClientRect(hwnd: *mut c_void, rect: *mut Rect) -> i32;
    fn GetKeyState(vk: i32) -> i16;
 }
@@ -114,15 +113,6 @@ unsafe extern "system" fn enum_discord_windows(hwnd: *mut c_void, lparam: isize)
       if pid != ctx.pid || IsWindowVisible(hwnd) == 0 {
          return 1;
       }
-      let mut cls = [0u16; 128];
-      let len = GetClassNameW(hwnd, cls.as_mut_ptr(), 128);
-      if len > 0 {
-         #[expect(clippy::cast_sign_loss, reason = "GetClassNameW length checked > 0")]
-         let name = String::from_utf16_lossy(&cls[..len as usize]);
-         if name == "RubyTrayWindow" {
-            return 1;
-         }
-      }
       let mut rect = Rect {
          left: 0,
          top: 0,
@@ -180,11 +170,18 @@ pub fn start_window_hook() {
    let _ = thread::Builder::new()
       .name("ruby-hwnd".to_owned())
       .spawn(|| {
-         for _ in 0..120 {
-            if !ensure_subclassed().is_null() {
-               return;
+         // Keeps going: the window can be closed and opened again, and Discord can set its own
+         // icon back.
+         loop {
+            let hwnd = ensure_subclassed();
+            if !hwnd.is_null() {
+               crate::windows::set_window_icons(hwnd);
             }
-            thread::sleep(Duration::from_millis(250));
+            thread::sleep(Duration::from_millis(if hwnd.is_null() {
+               250
+            } else {
+               2000
+            }));
          }
       });
 }

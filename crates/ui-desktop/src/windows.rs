@@ -1,93 +1,42 @@
 use std::{
    ffi::c_void,
    path::PathBuf,
-   ptr,
+   ptr, slice,
    sync::{
       Mutex, PoisonError,
-      atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
+      atomic::{AtomicUsize, Ordering},
    },
-   thread,
 };
 
-use crate::{DesktopHost, Error, TrayAction};
+use crate::{DesktopHost, Error, logo};
 
 const CF_UNICODETEXT: u32 = 13;
 const GMEM_MOVEABLE: u32 = 0x0002;
 const SW_SHOWNORMAL: i32 = 1;
 
-const WM_NULL: u32 = 0x0000;
-const WM_DESTROY: u32 = 0x0002;
-const WM_COMMAND: u32 = 0x0111;
-const WM_USER: u32 = 0x0400;
-const WM_TRAY: u32 = WM_USER + 1;
-const WM_LBUTTONUP: usize = 0x0202;
-const WM_LBUTTONDBLCLK: usize = 0x0203;
-const WM_RBUTTONUP: usize = 0x0205;
-const NIN_BALLOONUSERCLICK: usize = 0x0405;
+const WM_GETICON: u32 = 0x007F;
+const WM_SETICON: u32 = 0x0080;
+const ICON_SMALL: usize = 0;
+const ICON_BIG: usize = 1;
+const SMTO_ABORTIFHUNG: u32 = 0x0002;
 
 const NIM_ADD: u32 = 0x0000_0000;
 const NIM_MODIFY: u32 = 0x0000_0001;
-const NIM_DELETE: u32 = 0x0000_0002;
-const NIF_MESSAGE: u32 = 0x0000_0001;
 const NIF_ICON: u32 = 0x0000_0002;
-const NIF_TIP: u32 = 0x0000_0004;
 const NIF_INFO: u32 = 0x0000_0010;
 const NIIF_USER: u32 = 0x0000_0004;
 
-const MF_STRING: u32 = 0x0000_0000;
-const MF_SEPARATOR: u32 = 0x0000_0800;
-const TPM_RIGHTBUTTON: u32 = 0x0002;
-const TPM_NONOTIFY: u32 = 0x0080;
-const TPM_RETURNCMD: u32 = 0x0100;
-
-const ID_OPEN_DEVTOOLS: usize = 1006;
-const ID_RELOAD_ALL: usize = 1002;
-const ID_CHECK_UPDATES: usize = 1003;
-const ID_COPY_URL: usize = 1004;
-const ID_OPEN_PLUGINS: usize = 1005;
-
 const IDI_APPLICATION: usize = 32512;
-const TRAY_UID: u32 = 0x5342_5244; // "SBRD"
 const BI_RGB: u32 = 0;
 const DIB_RGB_COLORS: u32 = 0;
+const PAGE_READWRITE: u32 = 0x04;
 
-static TRAY_STARTED: AtomicBool = AtomicBool::new(false);
-static TRAY_HWND: AtomicUsize = AtomicUsize::new(0);
-static TRAY_ICON: AtomicUsize = AtomicUsize::new(0);
-static TASKBAR_CREATED_MSG: AtomicU32 = AtomicU32::new(0);
+/// Discord Phoenix's own tray icon, as its first `NIM_ADD` named it.
+static DISCORD_TRAY: Mutex<Option<(usize, u32)>> = Mutex::new(None);
+/// Notifications asked for before that icon exists.
 static PENDING_BALLOONS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
-
-#[repr(C)]
-struct WndClassExW {
-   cb_size: u32,
-   style: u32,
-   wnd_proc: unsafe extern "system" fn(*mut c_void, u32, usize, isize) -> isize,
-   cls_extra: i32,
-   wnd_extra: i32,
-   instance: *mut c_void,
-   icon: *mut c_void,
-   cursor: *mut c_void,
-   background: *mut c_void,
-   menu_name: *const u16,
-   class_name: *const u16,
-   icon_sm: *mut c_void,
-}
-
-#[repr(C)]
-struct Point {
-   x: i32,
-   y: i32,
-}
-
-#[repr(C)]
-struct Msg {
-   hwnd: *mut c_void,
-   message: u32,
-   wparam: usize,
-   lparam: isize,
-   time: u32,
-   pt: Point,
-}
+/// The real `Shell_NotifyIconW`, which Discord's import slot held before the hook.
+static ORIGINAL_NOTIFY: AtomicUsize = AtomicUsize::new(0);
 
 #[repr(C)]
 struct NotifyIconDataW {
@@ -139,47 +88,17 @@ unsafe extern "system" {
    fn CloseClipboard() -> i32;
    fn EmptyClipboard() -> i32;
    fn SetClipboardData(format: u32, mem: *mut c_void) -> *mut c_void;
-   fn RegisterClassExW(cls: *const WndClassExW) -> u16;
-   fn RegisterWindowMessageW(name: *const u16) -> u32;
-   fn CreateWindowExW(
-      ex_style: u32,
-      class_name: *const u16,
-      window_name: *const u16,
-      style: u32,
-      x: i32,
-      y: i32,
-      width: i32,
-      height: i32,
-      parent: *mut c_void,
-      menu: *mut c_void,
-      instance: *mut c_void,
-      param: *mut c_void,
-   ) -> *mut c_void;
-   fn DestroyWindow(hwnd: *mut c_void) -> i32;
-   fn DefWindowProcW(hwnd: *mut c_void, msg: u32, wparam: usize, lparam: isize) -> isize;
-   fn GetMessageW(msg: *mut Msg, hwnd: *mut c_void, min: u32, max: u32) -> i32;
-   fn TranslateMessage(msg: *const Msg) -> i32;
-   fn DispatchMessageW(msg: *const Msg) -> isize;
-   fn PostMessageW(hwnd: *mut c_void, msg: u32, wparam: usize, lparam: isize) -> i32;
    fn LoadIconW(instance: *mut c_void, name: *const u16) -> *mut c_void;
    fn CreateIconIndirect(info: *mut IconInfo) -> *mut c_void;
-   fn DestroyIcon(icon: *mut c_void) -> i32;
-   fn CreatePopupMenu() -> *mut c_void;
-   fn AppendMenuW(menu: *mut c_void, flags: u32, id: usize, item: *const u16) -> i32;
-   fn SetMenuDefaultItem(menu: *mut c_void, item: u32, by_pos: u32) -> i32;
-   fn TrackPopupMenu(
-      menu: *mut c_void,
-      flags: u32,
-      x: i32,
-      y: i32,
-      reserved: i32,
+   fn SendMessageTimeoutW(
       hwnd: *mut c_void,
-      rect: *const c_void,
-   ) -> i32;
-   fn DestroyMenu(menu: *mut c_void) -> i32;
-   fn GetCursorPos(pt: *mut Point) -> i32;
-   fn SetForegroundWindow(hwnd: *mut c_void) -> i32;
-   fn PostQuitMessage(code: i32);
+      msg: u32,
+      wparam: usize,
+      lparam: isize,
+      flags: u32,
+      timeout: u32,
+      result: *mut usize,
+   ) -> isize;
 }
 
 #[link(name = "gdi32")]
@@ -209,7 +128,7 @@ unsafe extern "system" {
    fn GlobalUnlock(mem: *mut c_void) -> i32;
    fn GlobalFree(mem: *mut c_void) -> *mut c_void;
    fn GetModuleHandleW(name: *const u16) -> *mut c_void;
-   fn GetCurrentProcessId() -> u32;
+   fn VirtualProtect(address: *mut c_void, size: usize, new: u32, old: *mut u32) -> i32;
 }
 
 #[link(name = "shell32")]
@@ -283,17 +202,30 @@ fn os_err(context: &str) -> Error {
    }
 }
 
-/// Builds a crisp 32×32 ARGB Ruby amber emblem icon for the system tray.
-unsafe fn create_ruby_icon() -> *mut c_void {
-   const SIZE: i32 = 32;
+/// The Ruby logo as an icon `size` pixels square, built once and kept for the life of the
+/// process.
+fn logo_icon(size: usize) -> *mut c_void {
+   static ICONS: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
+   let mut icons = ICONS.lock().unwrap_or_else(PoisonError::into_inner);
+   if let Some(&(_, icon)) = icons.iter().find(|(known, _)| *known == size) {
+      return icon as *mut c_void;
+   }
+   // SAFETY: builds a GDI icon from the logo's pixels.
+   let icon = unsafe { create_logo_icon(size) };
+   icons.push((size, icon as usize));
+   icon
+}
+
+unsafe fn create_logo_icon(size: usize) -> *mut c_void {
+   let side = i32::try_from(size).unwrap_or(32);
    #[expect(
       clippy::cast_possible_truncation,
       reason = "BITMAPINFOHEADER is 40 bytes"
    )]
    let bmi = BitmapInfoHeader {
       bi_size: size_of::<BitmapInfoHeader>() as u32,
-      bi_width: SIZE,
-      bi_height: -SIZE, // top-down DIB
+      bi_width: side,
+      bi_height: -side, // top-down DIB
       bi_planes: 1,
       bi_bit_count: 32,
       bi_compression: BI_RGB,
@@ -304,8 +236,7 @@ unsafe fn create_ruby_icon() -> *mut c_void {
       bi_clr_important: 0,
    };
    let mut bits: *mut c_void = ptr::null_mut();
-   // SAFETY: Win32 GDI DIB creation and icon assembly; temporary bitmaps are
-   // deleted.
+   // SAFETY: Win32 GDI DIB creation and icon assembly; temporary bitmaps are deleted.
    unsafe {
       let color = CreateDIBSection(
          ptr::null_mut(),
@@ -318,29 +249,10 @@ unsafe fn create_ruby_icon() -> *mut c_void {
       if color.is_null() || bits.is_null() {
          return LoadIconW(ptr::null_mut(), IDI_APPLICATION as *const u16);
       }
-      let pixels = std::slice::from_raw_parts_mut(bits.cast::<u32>(), (SIZE * SIZE) as usize);
-      for y in 0..SIZE {
-         for x in 0..SIZE {
-            let dx = f32::from(i16::try_from(x).unwrap_or(0)) - 15.5;
-            let dy = f32::from(i16::try_from(y).unwrap_or(0)) - 15.5;
-            let dist = dx.hypot(dy);
-            // Outer dark charcoal ring, rich amber sun body, bright gold core.
-            let pixel = if dist <= 5.5 {
-               0xFFFF_F3B0 // warm bright core (BGRA: 0xAARRGGBB in little-endian u32)
-            } else if dist <= 12.5 {
-               0xFFF5_9E0B // Ruby amber
-            } else if dist <= 14.5 {
-               0xFF1E_1F22 // dark Discord surface border
-            } else {
-               0x0000_0000 // transparent
-            };
-            #[expect(clippy::cast_sign_loss, reason = "x and y are in 0..SIZE")]
-            let index = (y * SIZE + x) as usize;
-            pixels[index] = pixel;
-         }
-      }
-      let mask_bytes = [0u8; (SIZE * SIZE / 8) as usize];
-      let mask = CreateBitmap(SIZE, SIZE, 1, 1, mask_bytes.as_ptr().cast());
+      slice::from_raw_parts_mut(bits.cast::<u32>(), size * size)
+         .copy_from_slice(&logo::pixels(size));
+      let mask_bytes = vec![0u8; size * size / 8];
+      let mask = CreateBitmap(side, side, 1, 1, mask_bytes.as_ptr().cast());
       let mut info = IconInfo {
          f_icon: 1,
          x_hotspot: 0,
@@ -361,12 +273,40 @@ unsafe fn create_ruby_icon() -> *mut c_void {
    }
 }
 
-fn tray_uid() -> u32 {
-   // SAFETY: GetCurrentProcessId has no preconditions.
-   TRAY_UID ^ unsafe { GetCurrentProcessId() }
+/// Gives a Discord window the Ruby logo for its title bar, taskbar button and Alt+Tab. Cheap
+/// to repeat: it only sends a message when the window shows another icon.
+pub(crate) fn set_window_icons(hwnd: *mut c_void) {
+   for (kind, size) in [(ICON_SMALL, 16), (ICON_BIG, 48)] {
+      let icon = logo_icon(size);
+      let mut current = 0_usize;
+      // SAFETY: `hwnd` is a window of this process, and the timeout keeps a hung one from
+      // blocking this thread.
+      unsafe {
+         SendMessageTimeoutW(
+            hwnd,
+            WM_GETICON,
+            kind,
+            0,
+            SMTO_ABORTIFHUNG,
+            500,
+            &raw mut current,
+         );
+         if current != icon as usize {
+            SendMessageTimeoutW(
+               hwnd,
+               WM_SETICON,
+               kind,
+               icon as isize,
+               SMTO_ABORTIFHUNG,
+               500,
+               ptr::null_mut(),
+            );
+         }
+      }
+   }
 }
 
-fn empty_nid(hwnd: *mut c_void) -> NotifyIconDataW {
+fn empty_nid(hwnd: *mut c_void, uid: u32) -> NotifyIconDataW {
    #[expect(
       clippy::cast_possible_truncation,
       reason = "NOTIFYICONDATAW is 976 bytes"
@@ -375,9 +315,9 @@ fn empty_nid(hwnd: *mut c_void) -> NotifyIconDataW {
    NotifyIconDataW {
       cb_size,
       hwnd,
-      u_id: tray_uid(),
+      u_id: uid,
       u_flags: 0,
-      u_callback_message: WM_TRAY,
+      u_callback_message: 0,
       h_icon: ptr::null_mut(),
       sz_tip: [0; 128],
       dw_state: 0,
@@ -391,246 +331,151 @@ fn empty_nid(hwnd: *mut c_void) -> NotifyIconDataW {
    }
 }
 
-unsafe fn add_tray_icon(hwnd: *mut c_void, icon: *mut c_void) -> bool {
-   let mut nid = empty_nid(hwnd);
-   nid.u_flags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-   nid.h_icon = icon;
-   fill_wide(&mut nid.sz_tip, "Ruby — Click for DevTools");
-   // SAFETY: `hwnd` and `icon` are live Win32 handles on the tray thread.
-   unsafe { Shell_NotifyIconW(NIM_ADD, &raw mut nid) != 0 }
-}
+type NotifyIcon = unsafe extern "system" fn(u32, *mut NotifyIconDataW) -> i32;
 
-fn start_tray() {
-   crate::webview::start_window_hook();
-   if TRAY_STARTED.swap(true, Ordering::AcqRel) {
-      return;
+/// Discord's `Shell_NotifyIconW`: its tray icon gets the Ruby logo, and its handle is kept for
+/// Ruby's notifications, so Ruby has no tray icon of its own.
+unsafe extern "system" fn notify_detour(message: u32, data: *mut NotifyIconDataW) -> i32 {
+   let original = ORIGINAL_NOTIFY.load(Ordering::Acquire);
+   if original == 0 {
+      return 0;
    }
-   let _ = thread::Builder::new()
-      .name("ruby-tray".to_owned())
-      .spawn(run_tray_loop);
-}
-
-fn run_tray_loop() {
-   let class_name = wide("RubyTrayWindow");
-   let title = wide("Ruby");
-   let taskbar_msg_name = wide("TaskbarCreated");
-   // SAFETY: Win32 hidden message window, hotkey, and tray registration on
-   // dedicated thread.
-   unsafe {
-      let taskbar_msg = RegisterWindowMessageW(taskbar_msg_name.as_ptr());
-      TASKBAR_CREATED_MSG.store(taskbar_msg, Ordering::Release);
-
-      let instance = GetModuleHandleW(ptr::null());
-      #[expect(clippy::cast_possible_truncation, reason = "WNDCLASSEXW is 80 bytes")]
-      let cb_size = size_of::<WndClassExW>() as u32;
-      let cls = WndClassExW {
-         cb_size,
-         style: 0,
-         wnd_proc: tray_wnd_proc,
-         cls_extra: 0,
-         wnd_extra: 0,
-         instance,
-         icon: ptr::null_mut(),
-         cursor: ptr::null_mut(),
-         background: ptr::null_mut(),
-         menu_name: ptr::null(),
-         class_name: class_name.as_ptr(),
-         icon_sm: ptr::null_mut(),
-      };
-      if RegisterClassExW(&raw const cls) == 0 {
-         log::debug!("tray: RegisterClassExW returned 0 (may already exist)");
+   // SAFETY: `original` is the function the import slot held, stored before the slot changed.
+   let original: NotifyIcon = unsafe { std::mem::transmute::<usize, NotifyIcon>(original) };
+   if !data.is_null() && matches!(message, NIM_ADD | NIM_MODIFY) {
+      // SAFETY: Discord passes a live NOTIFYICONDATAW. Only its leading fields are touched,
+      // which sit at the same offsets in every version of the struct.
+      unsafe {
+         if (*data).u_flags & NIF_ICON != 0 {
+            (*data).h_icon = logo_icon(32);
+         }
       }
-
-      let hwnd = CreateWindowExW(
-         0,
-         class_name.as_ptr(),
-         title.as_ptr(),
-         0,
-         0,
-         0,
-         0,
-         0,
-         ptr::null_mut(),
-         ptr::null_mut(),
-         instance,
-         ptr::null_mut(),
-      );
-      if hwnd.is_null() {
-         log::warn!(
-            "tray: CreateWindowExW failed: {}",
-            std::io::Error::last_os_error()
-         );
-         return;
-      }
-
-      let icon = create_ruby_icon();
-      TRAY_ICON.store(icon as usize, Ordering::Release);
-
-      if !add_tray_icon(hwnd, icon) {
-         log::warn!("tray: Shell_NotifyIconW(NIM_ADD) failed");
-         DestroyWindow(hwnd);
-         DestroyIcon(icon);
-         TRAY_ICON.store(0, Ordering::Release);
-         return;
-      }
-      TRAY_HWND.store(hwnd as usize, Ordering::Release);
-
-      // Flush any startup notifications queued before the tray HWND was ready.
+   }
+   // SAFETY: forwards the caller's arguments.
+   let result = unsafe { original(message, data) };
+   if result != 0 && message == NIM_ADD && !data.is_null() {
+      // SAFETY: as above.
+      let (hwnd, uid) = unsafe { ((*data).hwnd as usize, (*data).u_id) };
+      *DISCORD_TRAY.lock().unwrap_or_else(PoisonError::into_inner) = Some((hwnd, uid));
       let pending = std::mem::take(
          &mut *PENDING_BALLOONS
             .lock()
             .unwrap_or_else(PoisonError::into_inner),
       );
-      for (t, b) in pending {
-         send_balloon(hwnd, icon, &t, &b);
+      for (title, body) in pending {
+         send_balloon(hwnd, uid, &title, &body);
       }
+   }
+   result
+}
 
-      let mut msg = Msg {
-         hwnd: ptr::null_mut(),
-         message: 0,
-         wparam: 0,
-         lparam: 0,
-         time: 0,
-         pt: Point { x: 0, y: 0 },
-      };
-      while GetMessageW(&raw mut msg, ptr::null_mut(), 0, 0) > 0 {
-         TranslateMessage(&raw const msg);
-         DispatchMessageW(&raw const msg);
+/// The slot in the main module's import table for `name`, from any DLL.
+unsafe fn find_import(name: &[u8]) -> Option<*mut usize> {
+   // SAFETY: reads this process's own PE headers and import table, which are mapped for good.
+   unsafe {
+      let base = GetModuleHandleW(ptr::null()).cast::<u8>();
+      if base.is_null() {
+         return None;
       }
-
-      TRAY_HWND.store(0, Ordering::Release);
-      let mut del = empty_nid(hwnd);
-      Shell_NotifyIconW(NIM_DELETE, &raw mut del);
-      DestroyIcon(icon);
-      TRAY_ICON.store(0, Ordering::Release);
+      let word = |at: usize| base.add(at).cast::<u32>().read_unaligned();
+      let nt = word(0x3C) as usize;
+      // "PE\0\0", then the file header (20 bytes) and a PE32+ optional header.
+      let optional = nt + 24;
+      if word(nt) != 0x0000_4550 || base.add(optional).cast::<u16>().read_unaligned() != 0x20B {
+         return None;
+      }
+      // Data directory 1 is the import table, after the 112 bytes before the directories.
+      let mut descriptor = word(optional + 112 + 8) as usize;
+      if descriptor == 0 {
+         return None;
+      }
+      for _ in 0..1024 {
+         let (lookup, dll, slots) = (
+            word(descriptor),
+            word(descriptor + 12),
+            word(descriptor + 16),
+         );
+         if dll == 0 {
+            break;
+         }
+         let names = if lookup == 0 { slots } else { lookup } as usize;
+         for i in 0..8192 {
+            let entry = base.add(names + i * 8).cast::<u64>().read_unaligned();
+            if entry == 0 {
+               break;
+            }
+            // The top bit marks an import by ordinal, which has no name.
+            if entry >> 63 != 0 {
+               continue;
+            }
+            let found = slice::from_raw_parts(base.add(entry as usize + 2), name.len() + 1);
+            if &found[..name.len()] == name && found[name.len()] == 0 {
+               return Some(base.add(slots as usize + i * 8).cast());
+            }
+         }
+         descriptor += 20;
+      }
+      None
    }
 }
 
-fn send_balloon(hwnd: *mut c_void, icon: *mut c_void, title: &str, body: &str) {
-   let mut nid = empty_nid(hwnd);
+fn hook_tray() {
+   // SAFETY: patches one pointer in this process's own import table before Discord's tray code
+   // can run through it, then restores the page's protection.
+   unsafe {
+      let Some(slot) = find_import(b"Shell_NotifyIconW") else {
+         log::warn!("tray: Discord does not import Shell_NotifyIconW, its tray icon stays");
+         return;
+      };
+      let mut old = 0_u32;
+      if VirtualProtect(
+         slot.cast(),
+         size_of::<usize>(),
+         PAGE_READWRITE,
+         &raw mut old,
+      ) == 0
+      {
+         log::warn!("tray: the import slot is not writable");
+         return;
+      }
+      ORIGINAL_NOTIFY.store(slot.read(), Ordering::Release);
+      slot.write(notify_detour as *const () as usize);
+      VirtualProtect(slot.cast(), size_of::<usize>(), old, &raw mut old);
+   }
+   log::info!("tray: Discord's tray icon shows the Ruby logo");
+}
+
+/// Ruby has no tray icon: Discord's is the only one. This starts the Ctrl+Shift+I hook and the
+/// window icons.
+fn start_tray() {
+   crate::webview::start_window_hook();
+}
+
+fn send_balloon(hwnd: usize, uid: u32, title: &str, body: &str) {
+   let mut nid = empty_nid(hwnd as *mut c_void, uid);
    nid.u_flags = NIF_INFO;
    nid.dw_info_flags = NIIF_USER;
-   nid.h_balloon_icon = icon;
+   nid.h_balloon_icon = logo_icon(32);
    fill_wide(&mut nid.sz_info_title, title);
    fill_wide(&mut nid.sz_info, body);
-   // SAFETY: `hwnd` is a live tray window registered via NIM_ADD.
+   // SAFETY: `hwnd` is the window Discord registered its tray icon with, in this process.
    unsafe {
       Shell_NotifyIconW(NIM_MODIFY, &raw mut nid);
    }
 }
 
+/// A balloon on Discord's tray icon, or the next one that appears.
 fn balloon(title: &str, body: &str) {
-   let raw = TRAY_HWND.load(Ordering::Acquire);
-   if raw == 0 {
-      let mut queue = PENDING_BALLOONS
-         .lock()
-         .unwrap_or_else(PoisonError::into_inner);
-      if queue.len() < 8 {
-         queue.push((title.to_owned(), body.to_owned()));
-      }
-      drop(queue);
+   let tray = *DISCORD_TRAY.lock().unwrap_or_else(PoisonError::into_inner);
+   if let Some((hwnd, uid)) = tray {
+      send_balloon(hwnd, uid, title, body);
       return;
    }
-   let icon = TRAY_ICON.load(Ordering::Acquire) as *mut c_void;
-   send_balloon(raw as *mut c_void, icon, title, body);
-}
-
-fn run_menu_action(cmd: usize) {
-   let action = match cmd {
-      ID_OPEN_DEVTOOLS => TrayAction::OpenDevtools,
-      ID_RELOAD_ALL => TrayAction::ReloadAll,
-      ID_CHECK_UPDATES => TrayAction::CheckUpdates,
-      ID_COPY_URL => TrayAction::CopyUrl,
-      ID_OPEN_PLUGINS => TrayAction::OpenPlugins,
-      _ => return,
-   };
-   action.run();
-}
-
-unsafe extern "system" fn tray_wnd_proc(
-   hwnd: *mut c_void,
-   msg: u32,
-   wparam: usize,
-   lparam: isize,
-) -> isize {
-   let taskbar_msg = TASKBAR_CREATED_MSG.load(Ordering::Acquire);
-   if taskbar_msg != 0 && msg == taskbar_msg {
-      let icon = TRAY_ICON.load(Ordering::Acquire) as *mut c_void;
-      if !icon.is_null() {
-         // SAFETY: re-registering tray icon after explorer.exe restart.
-         unsafe { add_tray_icon(hwnd, icon) };
-      }
-      return 0;
-   }
-
-   match msg {
-      WM_TRAY => {
-         #[expect(
-            clippy::cast_sign_loss,
-            reason = "Win32 tray event code sits in low bits of lparam"
-         )]
-         let event = (lparam as usize) & 0xFFFF;
-         match event {
-            WM_LBUTTONUP | WM_LBUTTONDBLCLK | NIN_BALLOONUSERCLICK => crate::open_devtools(),
-            WM_RBUTTONUP => {
-               // SAFETY: Win32 popup menu owned and destroyed in this scope.
-               unsafe {
-                  let menu = CreatePopupMenu();
-                  if !menu.is_null() {
-                     let devtools_lbl = wide("Open DevTools\tCtrl+Shift+I");
-                     let reload_lbl = wide("Reload All Plugins");
-                     let update_lbl = wide("Check for Updates");
-                     let copy_lbl = wide("Copy DevTools URL");
-                     let folder_lbl = wide("Open Plugins Folder");
-
-                     AppendMenuW(menu, MF_STRING, ID_OPEN_DEVTOOLS, devtools_lbl.as_ptr());
-                     AppendMenuW(menu, MF_SEPARATOR, 0, ptr::null());
-                     AppendMenuW(menu, MF_STRING, ID_RELOAD_ALL, reload_lbl.as_ptr());
-                     AppendMenuW(menu, MF_STRING, ID_CHECK_UPDATES, update_lbl.as_ptr());
-                     AppendMenuW(menu, MF_SEPARATOR, 0, ptr::null());
-                     AppendMenuW(menu, MF_STRING, ID_COPY_URL, copy_lbl.as_ptr());
-                     AppendMenuW(menu, MF_STRING, ID_OPEN_PLUGINS, folder_lbl.as_ptr());
-                     SetMenuDefaultItem(menu, 0, 1);
-
-                     let mut pt = Point { x: 0, y: 0 };
-                     GetCursorPos(&raw mut pt);
-                     SetForegroundWindow(hwnd);
-                     let cmd = TrackPopupMenu(
-                        menu,
-                        TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD,
-                        pt.x,
-                        pt.y,
-                        0,
-                        hwnd,
-                        ptr::null(),
-                     );
-                     // Required per MSDN KB135788 so clicking outside dismisses the menu cleanly.
-                     PostMessageW(hwnd, WM_NULL, 0, 0);
-                     DestroyMenu(menu);
-                     #[expect(clippy::cast_sign_loss, reason = "menu command ids are positive")]
-                     if cmd > 0 {
-                        run_menu_action(cmd as usize);
-                     }
-                  }
-               }
-            },
-            _ => {},
-         }
-         0
-      },
-      WM_COMMAND => {
-         run_menu_action(wparam & 0xFFFF);
-         0
-      },
-      WM_DESTROY => {
-         // SAFETY: standard Win32 WM_DESTROY handler.
-         unsafe { PostQuitMessage(0) };
-         0
-      },
-      _ => {
-         // SAFETY: delegate unhandled messages to DefWindowProcW.
-         unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
-      },
+   let mut queue = PENDING_BALLOONS
+      .lock()
+      .unwrap_or_else(PoisonError::into_inner);
+   if queue.len() < 8 {
+      queue.push((title.to_owned(), body.to_owned()));
    }
 }
 
@@ -767,5 +612,9 @@ impl DesktopHost for Host {
 
    fn start_tray() {
       start_tray();
+   }
+
+   fn hook_tray() {
+      hook_tray();
    }
 }
