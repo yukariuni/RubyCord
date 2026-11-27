@@ -295,8 +295,13 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<usiz
       "Ruby.lnk",
       "Ruby (access gate only).lnk",
    ] {
-      let _ = fs::remove_file(programs.join(old));
-      let _ = fs::remove_file(desktop.join(old));
+      for folder in [&programs, &desktop] {
+         if fs::remove_file(folder.join(old)).is_ok() {
+            crate::say(format!(
+               "ok removed the shortcut of an earlier version: {old}"
+            ));
+         }
+      }
    }
 
    let discord = local.join("DiscordPhoenix").join("app").join("Discord.exe");
@@ -327,10 +332,31 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<usiz
    }
    let mut opening_launcher = 0;
    for lnk in &links {
+      let name = lnk.file_name().unwrap_or_default().to_string_lossy();
+      let place = lnk
+         .parent()
+         .and_then(Path::file_name)
+         .unwrap_or_default()
+         .to_string_lossy();
       match retarget(lnk, &from, to, icon, wrap) {
-         Ok(Outcome::Changed | Outcome::Already) => opening_launcher += 1,
-         Ok(Outcome::Other) | Err(_) => {},
+         Ok(Outcome::Changed) => {
+            opening_launcher += 1;
+            crate::say(if remove {
+               format!("ok restored {place}/{name}")
+            } else {
+               format!("ok redirected {place}/{name}")
+            });
+         },
+         Ok(Outcome::Already) => {
+            opening_launcher += 1;
+            crate::say(format!("ok {place}/{name} already opens RubyCord"));
+         },
+         Ok(Outcome::Other) => {},
+         Err(err) => crate::say(format!("warn could not change {place}/{name}: {err}")),
       }
+   }
+   if opening_launcher == 0 && !remove {
+      crate::say("warn no Discord Phoenix shortcut found");
    }
    Ok(if remove { 0 } else { opening_launcher })
 }

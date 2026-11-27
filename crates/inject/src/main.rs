@@ -20,6 +20,14 @@ mod http;
 #[cfg(windows)]
 mod shortcuts;
 
+/// A line of progress for whoever started the launcher with a pipe on its output, which is the
+/// installer's window. It starts `ok ` or `warn ` when it should be shown as one. With nothing to
+/// write to, it goes nowhere.
+#[cfg(windows)]
+pub(crate) fn say(line: impl std::fmt::Display) {
+   println!("{line}");
+}
+
 #[cfg(windows)]
 fn main() {
    misstep::install_panic_hook();
@@ -524,14 +532,20 @@ mod windows {
       if copied {
          fs::copy(&me, &launcher).context("copying the launcher")?;
       }
+      crate::say(format!("ok launcher: {}", launcher.display()));
       // The shortcuts' icon. A missing one only leaves them with Discord's.
-      let _ = fs::write(
-         home.join("rubycord.ico"),
-         phoenix_ui_desktop::logo::ico(&[16, 32, 48, 64]),
-      );
+      let logo = home.join("rubycord.ico");
+      if fs::write(&logo, phoenix_ui_desktop::logo::ico(&[16, 32, 48, 64])).is_ok() {
+         crate::say(format!("ok logo: {}", logo.display()));
+      }
       let dll = home.join("phoenix.dll");
       // Without a server the loader ships beside the launcher.
-      adopt(&me, &dll).context("installing the phoenix.dll beside the launcher")?;
+      let replaced = adopt(&me, &dll).context("installing the phoenix.dll beside the launcher")?;
+      crate::say(if replaced {
+         format!("ok loader: {} written", dll.display())
+      } else {
+         format!("ok loader: {} already up to date", dll.display())
+      });
       if let Err(err) = update(home, &dll)
          && !dll.is_file()
       {
@@ -569,24 +583,27 @@ mod windows {
 
    /// Installs the loader built into this launcher, or else the `phoenix.dll` beside it when
    /// that one is newer.
-   fn adopt(launcher: &Path, dll: &Path) -> io::Result<()> {
+   /// Whether it wrote a new one.
+   fn adopt(launcher: &Path, dll: &Path) -> io::Result<bool> {
       if !EMBEDDED.is_empty() {
          if fs::read(dll).is_ok_and(|have| have == EMBEDDED) {
-            return Ok(());
+            return Ok(false);
          }
-         return swap(dll, |path| fs::write(path, EMBEDDED));
+         swap(dll, |path| fs::write(path, EMBEDDED))?;
+         return Ok(true);
       }
       let Some(beside) = launcher.parent().map(|dir| dir.join("phoenix.dll")) else {
-         return Ok(());
+         return Ok(false);
       };
       if !beside.is_file() || same_file(&beside, dll) {
-         return Ok(());
+         return Ok(false);
       }
       let modified = |path: &Path| fs::metadata(path).and_then(|meta| meta.modified());
       if dll.is_file() && modified(&beside)? <= modified(dll)? {
-         return Ok(());
+         return Ok(false);
       }
-      swap(dll, |path| fs::copy(&beside, path).map(drop))
+      swap(dll, |path| fs::copy(&beside, path).map(drop))?;
+      Ok(true)
    }
 
    /// `--install`: puts the launcher, the loader and the shortcuts in place without starting
@@ -606,7 +623,10 @@ mod windows {
          .and_then(|_| crate::shortcuts::sync(local, &home.join("rubycord.exe"), false));
       match done {
          Ok(0) => 3,
-         Ok(_) => 0,
+         Ok(_) => {
+            crate::say("ok done");
+            0
+         },
          Err(err) => {
             let _ = fs::write(home.join("last-error.txt"), format!("{err:?}"));
             1
@@ -617,8 +637,11 @@ mod windows {
    /// The folder and shortcuts from when RubyCord was called Ruby.
    fn remove_legacy(local: &Path) {
       let old = local.join("Ruby");
-      if old.join("ruby.exe").is_file() {
-         let _ = fs::remove_dir_all(old);
+      if old.join("ruby.exe").is_file() && fs::remove_dir_all(&old).is_ok() {
+         crate::say(format!(
+            "ok removed the folder from the old name: {}",
+            old.display()
+         ));
       }
    }
 

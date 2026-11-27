@@ -12,7 +12,7 @@ Every push to `main` builds the two downloads on the **latest** release (Release
 - **Inject** installs the launcher to `%LOCALAPPDATA%\RubyCord` and points every shortcut you already have to Discord Phoenix at it (Start Menu, Desktop, pinned to the taskbar, Startup). From then on, opening Discord Phoenix the usual way loads RubyCord. It creates no shortcut of its own, does not change Discord's files and needs no administrator rights.
 - **Un-Inject** points the shortcuts back at Discord Phoenix and deletes what Inject made.
 
-The window also shows whether Discord Phoenix was found and whether RubyCord is injected. (The file is unsigned, so SmartScreen asks once: More info → Run anyway. It needs OpenGL 2, which any normal graphics driver has.)
+The window has its own title bar, shows whether Discord Phoenix was found and whether RubyCord is injected, and has a small terminal under the buttons that lists every step as it happens. (The file is unsigned, so SmartScreen asks once: More info → Run anyway. It needs OpenGL 2, which any normal graphics driver has.)
 
 **Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
 
