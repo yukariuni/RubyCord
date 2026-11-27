@@ -16,7 +16,7 @@ object       = { workspace = true }
 phoenix-sigs = { features = [ "file" ], workspace = true }
 rsa          = { default-features = false, features = [ "sha2", "std" ], version = "0.9" }
 serde_json   = { workspace = true }
-sha2         = { default-features = false, version = "0.10" }
+sha2         = { default-features = false, version = "0.11" }
 
 [lints]
 workspace = true
