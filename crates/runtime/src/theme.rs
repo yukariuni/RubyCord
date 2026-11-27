@@ -7,8 +7,10 @@
 use std::{
    collections::BTreeMap,
    fs,
-   path::PathBuf,
-   sync::{Mutex, PoisonError},
+   path::{Path, PathBuf},
+   sync::{Mutex, Once, PoisonError},
+   thread,
+   time::{Duration, SystemTime},
 };
 
 type Vars = BTreeMap<String, String>;
@@ -86,7 +88,61 @@ fn load() -> Vec<Theme> {
    themes
 }
 
+/// Every `.css` file in `dir` with its size and modification time, so a file added, removed or
+/// edited changes it.
+fn fingerprint(dir: &Path) -> Vec<(String, u64, Option<SystemTime>)> {
+   let mut files: Vec<_> = fs::read_dir(dir)
+      .into_iter()
+      .flatten()
+      .filter_map(Result::ok)
+      .filter(|entry| {
+         entry
+            .path()
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("css"))
+      })
+      .filter_map(|entry| {
+         let meta = entry.metadata().ok()?;
+         Some((
+            entry.file_name().to_string_lossy().into_owned(),
+            meta.len(),
+            meta.modified().ok(),
+         ))
+      })
+      .collect();
+   files.sort_by(|a, b| a.0.cmp(&b.0));
+   files
+}
+
+/// Watches the folder once the themes are first read, so files added, deleted or edited show
+/// up in the open page without a restart.
+fn watch() {
+   static WATCHER: Once = Once::new();
+   WATCHER.call_once(|| {
+      let Some(dir) = dir() else {
+         return;
+      };
+      let spawned = thread::Builder::new()
+         .name("ruby-themes".to_owned())
+         .spawn(move || {
+            let mut seen = fingerprint(&dir);
+            loop {
+               thread::sleep(Duration::from_secs(1));
+               let now = fingerprint(&dir);
+               if now != seen {
+                  seen = now;
+                  reload();
+               }
+            }
+         });
+      if let Err(err) = spawned {
+         log::warn!("themes: no folder watcher: {err}");
+      }
+   });
+}
+
 fn with<T>(f: impl FnOnce(&mut Vec<Theme>) -> T) -> T {
+   watch();
    let mut themes = THEMES.lock().unwrap_or_else(PoisonError::into_inner);
    f(themes.get_or_insert_with(load))
 }
@@ -104,7 +160,7 @@ pub fn list() -> Vec<Listed> {
    })
 }
 
-/// Rereads the folder, for files added or edited since.
+/// Rereads the folder. The watcher calls it on every change, and the Refresh button does too.
 pub fn reload() {
    *THEMES.lock().unwrap_or_else(PoisonError::into_inner) = None;
    crate::refresh_settings();
@@ -316,6 +372,23 @@ fn parse_color(text: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
    use super::*;
+
+   #[test]
+   fn fingerprint_follows_the_folder() {
+      let dir = std::env::temp_dir().join(format!("ruby-themes-test-{}", std::process::id()));
+      fs::create_dir_all(&dir).unwrap();
+      let empty = fingerprint(&dir);
+      fs::write(dir.join("a.css"), ":root { --bg: red }").unwrap();
+      fs::write(dir.join("notes.txt"), "ignored").unwrap();
+      let one = fingerprint(&dir);
+      assert_eq!(one.len(), 1);
+      assert_ne!(empty, one);
+      fs::write(dir.join("a.css"), ":root { --bg: #00ff00 }").unwrap();
+      assert_ne!(one, fingerprint(&dir), "an edit changes it");
+      fs::remove_file(dir.join("a.css")).unwrap();
+      assert_eq!(empty, fingerprint(&dir));
+      fs::remove_dir_all(&dir).unwrap();
+   }
 
    #[test]
    fn colors() {

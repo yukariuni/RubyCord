@@ -326,6 +326,7 @@ enum Action {
    ReloadAll,
    ToggleTheme(String),
    ImportTheme,
+   RefreshThemes,
    OpenDevTools,
    CheckUpdates,
    ApplyUpdates,
@@ -456,6 +457,7 @@ unsafe extern "C" fn button_callback(
             }
          },
          Action::ReloadAll => phoenix_runtime::reload_all(),
+         Action::RefreshThemes => theme::reload(),
          Action::ImportTheme => {
             std::thread::spawn(|| {
                let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("css") else {
@@ -2209,6 +2211,18 @@ fn render_themes_tab(
          BtnVariant::Secondary,
          BtnSize::Medium,
          Action::ImportTheme,
+      ),
+   );
+   root = b.push_div(
+      root,
+      b.action_row(
+         "ruby-themes-refresh",
+         "Refresh themes",
+         "The list follows the themes folder by itself: files you add, delete or edit show up here within a second.",
+         "Refresh",
+         BtnVariant::Secondary,
+         BtnSize::Medium,
+         Action::RefreshThemes,
       ),
    );
    let mut card = b.card(12.0, 16.0, 8.0, 0.20);
