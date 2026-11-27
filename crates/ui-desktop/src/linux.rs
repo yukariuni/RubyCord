@@ -3,25 +3,14 @@
 
 use std::{
    env,
-   io::{
-      BufRead as _,
-      BufReader,
-      Write as _,
-   },
+   io::{BufRead as _, BufReader, Write as _},
    path::PathBuf,
-   process::{
-      Command,
-      Stdio,
-   },
+   process::{Command, Stdio},
    sync::Once,
    thread,
 };
 
-use crate::{
-   DesktopHost,
-   Error,
-   TrayAction,
-};
+use crate::{DesktopHost, Error, TrayAction};
 
 /// The tray icon as an `AppIndicator` (`StatusNotifierItem`, which KDE shows
 /// natively and GNOME with its `AppIndicator` extension), run by the system
@@ -73,10 +62,8 @@ fn pipe_to(mut command: Command, text: &str) -> bool {
 /// Spawns `command` and waits for it on a background thread, so it never
 /// lingers as a zombie on Unix.
 fn spawn_reaped(command: &mut Command) -> Result<(), Error> {
-   let mut child = command.spawn().map_err(|err| {
-      Error::Platform {
-         message: format!("{}: {err}", command.get_program().display()),
-      }
+   let mut child = command.spawn().map_err(|err| Error::Platform {
+      message: format!("{}: {err}", command.get_program().display()),
    })?;
    let _ = thread::Builder::new()
       .name("ruby-reap".to_owned())
@@ -110,21 +97,21 @@ impl DesktopHost for Host {
       spawn_reaped(Command::new("xdg-open").arg(target))
    }
 
-   fn pick_js_path() -> Option<PathBuf> {
+   fn pick_path(ext: &str) -> Option<PathBuf> {
       let mut zenity = Command::new("zenity");
       zenity.args([
-         "--file-selection",
-         "--title=Install Ruby Plugin (.js)",
-         "--file-filter=JavaScript Plugins | *.js",
-         "--file-filter=All Files | *",
+         "--file-selection".to_owned(),
+         format!("--title=Import Ruby file (.{ext})"),
+         format!("--file-filter=.{ext} files | *.{ext}"),
+         "--file-filter=All Files | *".to_owned(),
       ]);
       let mut kdialog = Command::new("kdialog");
       kdialog.args([
-         "--title",
-         "Install Ruby Plugin (.js)",
-         "--getopenfilename",
-         ".",
-         "*.js|JavaScript Plugins",
+         "--title".to_owned(),
+         format!("Import Ruby file (.{ext})"),
+         "--getopenfilename".to_owned(),
+         ".".to_owned(),
+         format!("*.{ext}|.{ext} files"),
       ]);
       // The first dialog that starts decides; a cancel there is final.
       let output = [zenity, kdialog]
@@ -181,10 +168,8 @@ fn start_indicator() -> Result<(), Error> {
       .stdin(Stdio::piped())
       .stdout(Stdio::piped())
       .stderr(Stdio::null());
-   let mut child = python.spawn().map_err(|err| {
-      Error::Platform {
-         message: format!("python3 for the tray: {err}"),
-      }
+   let mut child = python.spawn().map_err(|err| Error::Platform {
+      message: format!("python3 for the tray: {err}"),
    })?;
    let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
       return Err(Error::Platform {
@@ -213,9 +198,7 @@ fn start_indicator() -> Result<(), Error> {
          }
       })
       .map(drop)
-      .map_err(|err| {
-         Error::Platform {
-            message: format!("tray thread: {err}"),
-         }
+      .map_err(|err| Error::Platform {
+         message: format!("tray thread: {err}"),
       })
 }

@@ -4,36 +4,22 @@
 //! thread, so the crate links nothing beyond libSystem.
 
 use std::{
-   ffi::{
-      CStr,
-      CString,
-      c_char,
-      c_void,
-   },
+   ffi::{CStr, CString, c_char, c_void},
    io::Write as _,
    path::PathBuf,
-   process::{
-      Command,
-      Stdio,
-   },
+   process::{Command, Stdio},
    ptr,
    sync::Once,
    thread,
 };
 
-use crate::{
-   DesktopHost,
-   Error,
-   TrayAction,
-};
+use crate::{DesktopHost, Error, TrayAction};
 
 /// Spawns `command` and waits for it on a background thread, so it never
 /// lingers as a zombie.
 fn spawn_reaped(command: &mut Command) -> Result<(), Error> {
-   let mut child = command.spawn().map_err(|err| {
-      Error::Platform {
-         message: format!("{}: {err}", command.get_program().display()),
-      }
+   let mut child = command.spawn().map_err(|err| Error::Platform {
+      message: format!("{}: {err}", command.get_program().display()),
    })?;
    let _ = thread::Builder::new()
       .name("ruby-reap".to_owned())
@@ -67,12 +53,15 @@ impl DesktopHost for Host {
       spawn_reaped(Command::new("/usr/bin/open").arg("--").arg(target))
    }
 
-   fn pick_js_path() -> Option<PathBuf> {
+   fn pick_path(ext: &str) -> Option<PathBuf> {
+      // `ext` is `js` or `css` from the callers, never user text.
       let output = Command::new("/usr/bin/osascript")
          .args([
-            "-e",
-            "POSIX path of (choose file with prompt \"Install Ruby Plugin (.js)\" of type \
-             {\"js\", \"com.netscape.javascript-source\"})",
+            "-e".to_owned(),
+            format!(
+               "POSIX path of (choose file with prompt \"Import Ruby file (.{ext})\" of type \
+                {{\"{ext}\"}})"
+            ),
          ])
          .stderr(Stdio::null())
          .output()
@@ -206,13 +195,7 @@ msg_send!(send_tag() -> isize);
 
 mod panel;
 
-pub use panel::{
-   Action as PanelAction,
-   PanelButton,
-   PanelSection,
-   close_panel,
-   show_panel,
-};
+pub use panel::{Action as PanelAction, PanelButton, PanelSection, close_panel, show_panel};
 
 /// An autoreleased `NSString`, nil for text with a NUL.
 ///
@@ -305,10 +288,10 @@ fn start_status_item() {
    // life of the process.
    unsafe {
       let bar = send(class(c"NSStatusBar"), sel(c"systemStatusBar"));
-      let target = target_object(c"RubyTrayTarget", &[(
-         c"rubyTray:",
-         tray_clicked as *const c_void,
-      )]);
+      let target = target_object(
+         c"RubyTrayTarget",
+         &[(c"rubyTray:", tray_clicked as *const c_void)],
+      );
       if bar.is_null() || target.is_null() {
          log::info!("tray: AppKit is not available");
          return;
@@ -379,17 +362,17 @@ const MODIFIERS: usize = 0xFFFF_0000;
 /// An Objective-C block, laid out as the runtime reads one.
 #[repr(C)]
 struct Block {
-   isa:        *const c_void,
-   flags:      i32,
-   reserved:   i32,
-   invoke:     extern "C" fn(*const Self, Id) -> Id,
+   isa: *const c_void,
+   flags: i32,
+   reserved: i32,
+   invoke: extern "C" fn(*const Self, Id) -> Id,
    descriptor: *const BlockDescriptor,
 }
 
 #[repr(C)]
 struct BlockDescriptor {
    reserved: usize,
-   size:     usize,
+   size: usize,
 }
 
 unsafe extern "C" {
@@ -426,15 +409,15 @@ fn start_shortcuts() {
    const IS_GLOBAL: i32 = 1 << 28;
    static DESCRIPTOR: BlockDescriptor = BlockDescriptor {
       reserved: 0,
-      size:     size_of::<Block>(),
+      size: size_of::<Block>(),
    };
 
    // Leaked, since the monitor keeps it for the life of the process.
    let block = Box::leak(Box::new(Block {
-      isa:        &raw const _NSConcreteGlobalBlock,
-      flags:      IS_GLOBAL,
-      reserved:   0,
-      invoke:     key_down,
+      isa: &raw const _NSConcreteGlobalBlock,
+      flags: IS_GLOBAL,
+      reserved: 0,
+      invoke: key_down,
       descriptor: &raw const DESCRIPTOR,
    }));
    // SAFETY: on the main thread; the block has the handler's signature and

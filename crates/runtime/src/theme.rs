@@ -11,23 +11,6 @@ use std::{
    sync::{Mutex, PoisonError},
 };
 
-const SAMPLE_NAME: &str = "ruby";
-const SAMPLE: &str = "/* Ruby theme. Custom properties on :root restyle Ruby's pages. */
-:root {
-   --bg: #1a0f14;
-   --surface: #251319;
-   --border: #4a2330;
-   --text: #f5e6ea;
-   --muted: #b08a94;
-   --accent: #e0115f;
-   --radius: 12px;
-   /* DevTools only */
-   --bar: #251319;
-   --hover: #2d1920;
-   --row-line: #331a22;
-}
-";
-
 type Vars = BTreeMap<String, String>;
 
 struct Theme {
@@ -72,9 +55,6 @@ fn load() -> Vec<Theme> {
    let Some(dir) = dir() else {
       return Vec::new();
    };
-   if !dir.exists() && fs::create_dir_all(&dir).is_ok() {
-      let _ = fs::write(dir.join(format!("{SAMPLE_NAME}.css")), SAMPLE);
-   }
    let on: Vec<String> = enabled_path()
       .and_then(|path| fs::read(path).ok())
       .and_then(|bytes| serde_json::from_slice(&bytes).ok())
@@ -128,6 +108,32 @@ pub fn list() -> Vec<Listed> {
 pub fn reload() {
    *THEMES.lock().unwrap_or_else(PoisonError::into_inner) = None;
    crate::refresh_settings();
+}
+
+/// Saves a picked `.css` file into the themes folder and turns it on. Returns the theme's name.
+pub fn import(file_name: &str, bytes: &[u8]) -> Result<String, String> {
+   const MAX: usize = 1 << 20;
+   let name = file_name
+      .strip_suffix(".css")
+      .or_else(|| file_name.strip_suffix(".CSS"))
+      .filter(|name| {
+         !name.is_empty()
+            && name
+               .chars()
+               .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '_' | '-' | '.'))
+            && !name.starts_with('.')
+      })
+      .ok_or("pick a .css file with a plain name")?;
+   if bytes.len() > MAX {
+      return Err("the file is over 1 MB".to_owned());
+   }
+   std::str::from_utf8(bytes).map_err(|_| "the file is not UTF-8 text")?;
+   let dir = dir().ok_or("Ruby has not started")?;
+   fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+   fs::write(dir.join(format!("{name}.css")), bytes).map_err(|err| err.to_string())?;
+   reload();
+   set_enabled(name, true);
+   Ok(name.to_owned())
 }
 
 pub fn set_enabled(name: &str, enabled: bool) {
@@ -310,6 +316,22 @@ fn parse_color(text: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
    use super::*;
+
+   const SAMPLE: &str = "/* Ruby theme. Custom properties on :root restyle Ruby's pages. */
+   :root {
+      --bg: #1a0f14;
+      --surface: #251319;
+      --border: #4a2330;
+      --text: #f5e6ea;
+      --muted: #b08a94;
+      --accent: #e0115f;
+      --radius: 12px;
+      /* DevTools only */
+      --bar: #251319;
+      --hover: #2d1920;
+      --row-line: #331a22;
+   }
+   ";
 
    #[test]
    fn colors() {

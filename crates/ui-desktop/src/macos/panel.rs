@@ -12,34 +12,14 @@ use std::{
    ffi::c_void,
    ptr,
    sync::{
-      Arc,
-      LazyLock,
-      Mutex,
-      PoisonError,
-      atomic::{
-         AtomicIsize,
-         AtomicU64,
-         Ordering,
-      },
+      Arc, LazyLock, Mutex, PoisonError,
+      atomic::{AtomicIsize, AtomicU64, Ordering},
    },
 };
 
 use super::{
-   Id,
-   Sel,
-   class,
-   ns_string,
-   objc_msgSend,
-   on_main,
-   sel,
-   send,
-   send_bool,
-   send_f64,
-   send_id,
-   send_isize,
-   send_tag,
-   spawn,
-   target_object,
+   Id, Sel, class, ns_string, objc_msgSend, on_main, sel, send, send_bool, send_f64, send_id,
+   send_isize, send_tag, spawn, target_object,
 };
 
 /// A click handler. Handlers may block or call back into plugins, so they run
@@ -47,23 +27,23 @@ use super::{
 pub type Action = Arc<dyn Fn() + Send + Sync>;
 
 pub struct PanelButton {
-   pub label:    String,
-   pub danger:   bool,
+   pub label: String,
+   pub danger: bool,
    pub on_press: Action,
 }
 
 pub enum PanelSection {
    Buttons {
-      title:   Option<String>,
+      title: Option<String>,
       buttons: Vec<PanelButton>,
    },
    Text {
       title: Option<String>,
-      text:  String,
+      text: String,
    },
    Code {
-      title:     Option<String>,
-      text:      String,
+      title: Option<String>,
+      text: String,
       monospace: bool,
    },
 }
@@ -71,8 +51,8 @@ pub enum PanelSection {
 /// An open window: the `NSWindow`, its buttons' tags and what runs when it
 /// closes.
 struct Open {
-   window:   usize,
-   tags:     Vec<isize>,
+   window: usize,
+   tags: Vec<isize>,
    on_close: Option<Action>,
 }
 
@@ -84,19 +64,19 @@ static OPEN: LazyLock<Mutex<HashMap<u64, Open>>> = LazyLock::new(Mutex::default)
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Rect {
-   x:      f64,
-   y:      f64,
-   width:  f64,
+   x: f64,
+   y: f64,
+   width: f64,
    height: f64,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Insets {
-   top:    f64,
-   left:   f64,
+   top: f64,
+   left: f64,
    bottom: f64,
-   right:  f64,
+   right: f64,
 }
 
 msg_send!(send_window(rect: Rect, style: usize, backing: usize, defer: bool) -> Id);
@@ -112,7 +92,7 @@ msg_send!(send_fitting() -> Size);
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Size {
-   width:  f64,
+   width: f64,
    height: f64,
 }
 
@@ -183,9 +163,9 @@ unsafe fn build(id: u64, title: &str, sections: Vec<PanelSection>, on_close: Opt
          send(class(c"NSWindow"), sel(c"alloc")),
          sel(c"initWithContentRect:styleMask:backing:defer:"),
          Rect {
-            x:      0.0,
-            y:      0.0,
-            width:  640.0,
+            x: 0.0,
+            y: 0.0,
+            width: 640.0,
             height: 560.0,
          },
          STYLE,
@@ -203,12 +183,16 @@ unsafe fn build(id: u64, title: &str, sections: Vec<PanelSection>, on_close: Opt
       send_isize(stack, sel(c"setOrientation:"), VERTICAL);
       send_isize(stack, sel(c"setAlignment:"), LEADING);
       send_f64_unit(stack, sel(c"setSpacing:"), 10.0);
-      send_insets(stack, sel(c"setEdgeInsets:"), Insets {
-         top:    INSET,
-         left:   INSET,
-         bottom: INSET,
-         right:  INSET,
-      });
+      send_insets(
+         stack,
+         sel(c"setEdgeInsets:"),
+         Insets {
+            top: INSET,
+            left: INSET,
+            bottom: INSET,
+            right: INSET,
+         },
+      );
 
       // Every row spans the window, less the insets.
       let add = |view: Id| {
@@ -345,14 +329,14 @@ unsafe fn build(id: u64, title: &str, sections: Vec<PanelSection>, on_close: Opt
          );
       }
       send_id(window, sel(c"setDelegate:"), target);
-      OPEN
-         .lock()
-         .unwrap_or_else(PoisonError::into_inner)
-         .insert(id, Open {
+      OPEN.lock().unwrap_or_else(PoisonError::into_inner).insert(
+         id,
+         Open {
             window: window as usize,
             tags,
             on_close,
-         });
+         },
+      );
       send(window, sel(c"center"));
       send_id(window, sel(c"makeKeyAndOrderFront:"), ptr::null_mut());
    }
@@ -407,10 +391,13 @@ fn target() -> Id {
       // SAFETY: on the main thread, with `panel_clicked` and
       // `window_will_close` of type `v@:@`.
       unsafe {
-         target_object(c"RubyPanelTarget", &[
-            (c"rubyPanel:", panel_clicked as *const c_void),
-            (c"windowWillClose:", window_will_close as *const c_void),
-         ])
+         target_object(
+            c"RubyPanelTarget",
+            &[
+               (c"rubyPanel:", panel_clicked as *const c_void),
+               (c"windowWillClose:", window_will_close as *const c_void),
+            ],
+         )
       }
       .addr()
    });

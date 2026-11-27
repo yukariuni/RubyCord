@@ -325,7 +325,7 @@ enum Action {
    ToggleStaff,
    ReloadAll,
    ToggleTheme(String),
-   ReloadThemes,
+   ImportTheme,
    OpenDevTools,
    CheckUpdates,
    ApplyUpdates,
@@ -459,7 +459,18 @@ unsafe extern "C" fn button_callback(
             let on = theme::list().iter().any(|t| t.name == name && t.enabled);
             theme::set_enabled(&name, !on);
          },
-         Action::ReloadThemes => theme::reload(),
+         Action::ImportTheme => {
+            std::thread::spawn(|| {
+               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("css") else {
+                  return;
+               };
+               match theme::import(&file_name, &bytes) {
+                  Ok(name) => phoenix_ui_desktop::toast(&format!("Imported theme {name}")),
+                  Err(err) => phoenix_ui_desktop::toast(&format!("Theme import failed: {err}")),
+               }
+               crate::modal::force_redraw();
+            });
+         },
          Action::OpenDevTools => phoenix_ui_desktop::open_devtools(),
          Action::CheckUpdates => update::check_now(),
          Action::ApplyUpdates => update::apply(),
@@ -480,7 +491,7 @@ unsafe extern "C" fn button_callback(
          },
          Action::InstallFromFile => {
             std::thread::spawn(|| {
-               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_js_file() else {
+               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("js") else {
                   return;
                };
                match phoenix_runtime::install_file(&file_name, bytes) {
@@ -2191,19 +2202,16 @@ fn render_themes_tab(
    themes: &[theme::Listed],
    palette: Palette,
 ) -> RawDiv {
-   let dir = theme::dir().map_or_else(String::new, |dir| dir.display().to_string());
    root = b.push_div(
       root,
       b.action_row(
-         "ruby-themes-reload",
-         "Theme files",
-         &format!(
-            "Put .css files in {dir}. Custom properties on :root (--bg, --surface, --border,              --text, --muted, --accent, --radius) restyle these pages; enabled themes stack in              name order. DevTools applies every rule."
-         ),
-         "Reload",
+         "ruby-themes-import",
+         "Import a theme",
+         "Pick a .css file. Custom properties on :root (--bg, --surface, --border, --text,           --muted, --accent, --radius) restyle these pages, and DevTools applies every rule.           Enabled themes stack in name order.",
+         "Import theme",
          BtnVariant::Secondary,
          BtnSize::Medium,
-         Action::ReloadThemes,
+         Action::ImportTheme,
       ),
    );
    let mut card = b.card(12.0, 16.0, 8.0, 0.20);

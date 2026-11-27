@@ -7,31 +7,28 @@
 //!
 //! Each OS implements [`DesktopHost`]; everything above it is shared here.
 
-#[cfg(target_os = "linux")] mod linux;
-#[cfg(target_os = "macos")] mod macos;
-#[cfg(windows)] mod webview;
-#[cfg(windows)] mod windows;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(windows)]
+mod webview;
+#[cfg(windows)]
+mod windows;
 
 use std::{
    path::PathBuf,
-   sync::{
-      Arc,
-      OnceLock,
-   },
+   sync::{Arc, OnceLock},
 };
 
-#[cfg(target_os = "linux")] use linux::Host as Os;
-#[cfg(target_os = "macos")] use macos::Host as Os;
+#[cfg(target_os = "linux")]
+use linux::Host as Os;
 #[cfg(target_os = "macos")]
-pub use macos::{
-   PanelAction,
-   PanelButton,
-   PanelSection,
-   close_panel,
-   redraw_windows,
-   show_panel,
-};
-#[cfg(windows)] use windows::Host as Os;
+use macos::Host as Os;
+#[cfg(target_os = "macos")]
+pub use macos::{PanelAction, PanelButton, PanelSection, close_panel, redraw_windows, show_panel};
+#[cfg(windows)]
+use windows::Host as Os;
 
 /// Self-contained HTML/JS/CSS companion dashboard for Desktop settings,
 /// plugin management, catalog installs, OTA updates, and JS console.
@@ -49,9 +46,9 @@ pub enum Error {
 pub struct TrayConfig {
    /// Starts the debug shell if it isn't running and returns the `DevTools`
    /// URL.
-   pub devtools_url:     Arc<dyn Fn() -> String + Send + Sync>,
-   pub plugins_dir:      PathBuf,
-   pub on_reload_all:    Option<Arc<dyn Fn() + Send + Sync>>,
+   pub devtools_url: Arc<dyn Fn() -> String + Send + Sync>,
+   pub plugins_dir: PathBuf,
+   pub on_reload_all: Option<Arc<dyn Fn() + Send + Sync>>,
    pub on_check_updates: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
@@ -154,8 +151,8 @@ trait DesktopHost {
       Err(Error::Unsupported)
    }
 
-   /// Asks for a `.js` file with the native picker.
-   fn pick_js_path() -> Option<PathBuf> {
+   /// Asks for a file with extension `ext` (`js` or `css`) with the native picker.
+   fn pick_path(_ext: &str) -> Option<PathBuf> {
       None
    }
 
@@ -210,11 +207,11 @@ pub fn copy(text: &str) -> Result<(), Error> {
    Os::copy(text)
 }
 
-/// Opens the native OS file picker for choosing a `.js` plugin bundle to
-/// install (`(file_name, bytes)`).
+/// Opens the native OS file picker for a `.js` or `.css` file (`ext` without the dot), as
+/// `(file_name, bytes)`.
 #[must_use]
-pub fn pick_js_file() -> Option<(String, Vec<u8>)> {
-   let path = Os::pick_js_path()?;
+pub fn pick_file(ext: &str) -> Option<(String, Vec<u8>)> {
+   let path = Os::pick_path(ext)?;
    let name = path.file_name()?.to_string_lossy().into_owned();
    let bytes = std::fs::read(&path).ok()?;
    Some((name, bytes))

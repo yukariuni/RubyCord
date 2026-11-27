@@ -8,11 +8,7 @@
 use std::{
    ffi::c_void,
    ptr,
-   sync::atomic::{
-      AtomicBool,
-      AtomicUsize,
-      Ordering,
-   },
+   sync::atomic::{AtomicBool, AtomicUsize, Ordering},
    thread,
    time::Duration,
 };
@@ -33,9 +29,9 @@ static DISCORD_HWND: AtomicUsize = AtomicUsize::new(0);
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Rect {
-   left:   i32,
-   top:    i32,
-   right:  i32,
+   left: i32,
+   top: i32,
+   right: i32,
    bottom: i32,
 }
 
@@ -105,7 +101,7 @@ unsafe extern "system" fn discord_subclass_proc(
 }
 
 struct FindCtx {
-   pid:  u32,
+   pid: u32,
    hwnd: *mut c_void,
 }
 
@@ -128,9 +124,9 @@ unsafe extern "system" fn enum_discord_windows(hwnd: *mut c_void, lparam: isize)
          }
       }
       let mut rect = Rect {
-         left:   0,
-         top:    0,
-         right:  0,
+         left: 0,
+         top: 0,
+         right: 0,
          bottom: 0,
       };
       GetClientRect(hwnd, &raw mut rect);
@@ -146,7 +142,7 @@ fn find_discord_hwnd() -> *mut c_void {
    // SAFETY: Win32 process ID and EnumWindows with stack-owned `FindCtx`.
    unsafe {
       let mut ctx = FindCtx {
-         pid:  GetCurrentProcessId(),
+         pid: GetCurrentProcessId(),
          hwnd: ptr::null_mut(),
       };
       EnumWindows(enum_discord_windows, (&raw mut ctx) as isize);
