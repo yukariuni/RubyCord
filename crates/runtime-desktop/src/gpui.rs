@@ -386,6 +386,7 @@ unsafe fn switch_callback(
       match action {
          Action::ToggleStaff => phoenix_runtime::set_staff_enabled(on),
          Action::TogglePlugin(name) => phoenix_runtime::set_enabled(&name, on),
+         Action::ToggleTheme(name) => theme::set_enabled(&name, on),
          Action::ToggleSetting { plugin, key } => {
             phoenix_runtime::set_setting(&plugin, &key, Chosen::Switch(on));
          },
@@ -455,10 +456,6 @@ unsafe extern "C" fn button_callback(
             }
          },
          Action::ReloadAll => phoenix_runtime::reload_all(),
-         Action::ToggleTheme(name) => {
-            let on = theme::list().iter().any(|t| t.name == name && t.enabled);
-            theme::set_enabled(&name, !on);
-         },
          Action::ImportTheme => {
             std::thread::spawn(|| {
                let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("css") else {
@@ -2233,7 +2230,11 @@ fn render_themes_tab(
          b.switch_row(
             &format!("ruby-theme-{}", theme.name),
             &theme.name,
-            Some(&format!("{} custom properties", theme.vars)),
+            Some(if theme.used {
+               "Restyles Ruby's pages and DevTools"
+            } else {
+               "Sets none of the colors Ruby reads, so only DevTools uses it"
+            }),
             theme.enabled,
             Action::ToggleTheme(theme.name.clone()),
          ),

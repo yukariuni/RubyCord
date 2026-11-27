@@ -24,8 +24,8 @@ struct Theme {
 pub struct Listed {
    pub name: String,
    pub enabled: bool,
-   /// Custom properties the theme sets.
-   pub vars: usize,
+   /// Whether it sets any property Ruby's own pages read.
+   pub used: bool,
 }
 
 /// Colors as `0xAARRGGBB` and the corner radius in pixels, each `None` until a theme sets it.
@@ -98,7 +98,7 @@ pub fn list() -> Vec<Listed> {
          .map(|theme| Listed {
             name: theme.name.clone(),
             enabled: theme.enabled,
-            vars: theme.vars.len(),
+            used: palette_of(&theme.vars) != Palette::default(),
          })
          .collect()
    })
@@ -182,15 +182,45 @@ pub fn palette() -> Palette {
 }
 
 fn palette_of(vars: &Vars) -> Palette {
-   let color = |name: &str| resolve(vars, name).and_then(|value| parse_color(&value));
+   let color = |names: &[&str]| {
+      names
+         .iter()
+         .find_map(|name| resolve(vars, name).and_then(|value| parse_color(&value)))
+   };
    Palette {
-      bg: color("--bg"),
-      surface: color("--surface"),
-      border: color("--border"),
-      text: color("--text"),
-      muted: color("--muted"),
-      accent: color("--accent"),
-      radius: resolve(vars, "--radius").and_then(|value| {
+      bg: color(&[
+         "--bg",
+         "--background-primary",
+         "--background-base-low",
+         "--background-base-lowest",
+      ]),
+      surface: color(&[
+         "--surface",
+         "--background-secondary",
+         "--background-surface-high",
+         "--background-base-lower",
+      ]),
+      border: color(&[
+         "--border",
+         "--border-subtle",
+         "--border-normal",
+         "--background-modifier-accent",
+      ]),
+      text: color(&[
+         "--text",
+         "--text-normal",
+         "--text-default",
+         "--header-primary",
+      ]),
+      muted: color(&["--muted", "--text-muted", "--text-secondary"]),
+      accent: color(&[
+         "--accent",
+         "--brand-500",
+         "--brand-experiment",
+         "--brand-360",
+      ]),
+      radius: ["--radius", "--border-radius"].iter().find_map(|name| {
+         let value = resolve(vars, name)?;
          let px = value.strip_suffix("px").unwrap_or(&value).trim();
          px.parse::<f32>()
             .ok()
@@ -353,6 +383,20 @@ mod tests {
       assert_eq!(palette.bg, Some(0xFF1A_0F14));
       assert_eq!(palette.accent, Some(0xFFE0_115F));
       assert_eq!(palette.radius, Some(12.0));
+   }
+
+   #[test]
+   fn discord_theme_names_work() {
+      let palette = palette_of(&parse(
+         ":root { --background-primary: #111; --text-normal: rgb(255 255 255); --brand-500: #5865f2 }",
+      ));
+      assert_eq!(palette.bg, Some(0xFF11_1111));
+      assert_eq!(palette.text, Some(0xFFFF_FFFF));
+      assert_eq!(palette.accent, Some(0xFF58_65F2));
+      assert_eq!(
+         palette_of(&parse(":root { --other: red }")),
+         Palette::default()
+      );
    }
 
    #[test]
