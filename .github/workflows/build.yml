@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo build --locked --release -p phoenix-loader
-      - name: One file: the installer script with the loader appended
+      - name: "One file: the installer script with the loader appended"
         run: |
           { cat scripts/ruby-linux.sh; echo __PAYLOAD__; cat target/release/libphoenix.so; } > ruby_discord_client-linux
           chmod +x ruby_discord_client-linux
