@@ -50,6 +50,13 @@ pub unsafe extern "system" fn DllMain(
    1
 }
 
+/// A named export for the import the in-place patch adds to `Discord.exe`
+/// (`crates/installer`), so Windows loads this DLL and runs `DllMain`. Never
+/// called; binding it is only what forces the load.
+#[cfg(windows)]
+#[unsafe(no_mangle)]
+pub extern "C" fn RubyCordAttach() {}
+
 #[cfg(unix)]
 extern "C" fn init() {
    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]

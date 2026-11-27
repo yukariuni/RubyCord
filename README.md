@@ -9,19 +9,19 @@ No root, no Xposed, and on desktop Discord's own files stay untouched.
 Every push to `main` builds the two downloads on the **latest** release (Releases page). Download one, quit Discord Phoenix, run it.
 
 **Windows**: run `rubycord-installer.exe`. A window opens with two buttons:
-- **Inject** installs the launcher to `%LOCALAPPDATA%\RubyCord` and points every shortcut you already have to Discord Phoenix at it (Start Menu, Desktop, pinned to the taskbar, Startup). From then on, opening Discord Phoenix the usual way loads RubyCord. It creates no shortcut of its own, does not change Discord's files and needs no administrator rights.
-- **Un-Inject** points the shortcuts back at Discord Phoenix and deletes what Inject made.
+- **Inject** drops the loader next to `Discord.exe` as `rubycord.dll` and patches `Discord.exe` to load it, the way Vencord patches Electron Discord. Every launch of Discord Phoenix then loads RubyCord — from any shortcut, a `discord://` link, anything. No launcher, no shortcut changes, no administrator rights.
+- **Un-Inject** restores `Discord.exe` to its exact original bytes and removes the loader.
 
-The window has its own title bar, shows whether Discord Phoenix was found and whether RubyCord is injected, and has a small terminal under the buttons that lists every step as it happens. (The file is unsigned, so SmartScreen asks once: More info → Run anyway. It needs OpenGL 2, which any normal graphics driver has.)
+Quit Discord Phoenix before either button (patching its exe needs it closed). The window shows whether Discord Phoenix was found and whether RubyCord is injected, with a terminal under the buttons listing every step. (The installer is unsigned, so SmartScreen asks once: More info → Run anyway; patching voids Discord.exe's signature, which AV may flag. A Discord update replaces Discord.exe, so Inject again after one. It needs OpenGL 2, which any normal driver has.)
 
 **Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
 
 Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
-- Windows: if Discord's updater recreates its Start Menu shortcut, press Inject again. A `discord://` link or a Windows startup entry in the registry starts Discord Phoenix without RubyCord, because only shortcuts are redirected.
+- Windows: after a Discord update (which replaces `Discord.exe`), press Inject again.
 - To update, download the new file and run it again.
-- On Linux, run `./rubycord-installer-linux` and pick 1 (Inject) or 2 (Un-Inject), or pass `--uninstall`. Discord's own files are never modified.
+- On Linux, run `./rubycord-installer-linux` and pick 1 (Inject) or 2 (Un-Inject), or pass `--uninstall`.
 - To start Discord Phoenix without the plugins, in case a Discord update breaks the runtime, run `%LOCALAPPDATA%\RubyCord\rubycord.exe --no-runtime`.
 
 ### Building it yourself (Windows)

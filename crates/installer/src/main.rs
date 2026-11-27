@@ -1,12 +1,14 @@
 //! `rubycord-installer.exe`: a window with two buttons, Inject and Un-Inject, and a small terminal
 //! that lists every step as it happens.
 //!
-//! Inject puts the launcher (which carries the loader) in `%LOCALAPPDATA%\RubyCord` and points
-//! the user's Discord Phoenix shortcuts at it, so opening Discord Phoenix the usual way loads
-//! RubyCord. Un-Inject points them back and deletes what Inject made. Discord's own files are
-//! never touched, and neither button needs administrator rights.
+//! Inject drops the loader beside `Discord.exe` as `rubycord.dll` and patches `Discord.exe` to
+//! import it ([`patch`]), the way Vencord patches Electron Discord, so every launch loads RubyCord
+//! with no launcher and no shortcut changes. Un-Inject puts `Discord.exe` back exactly and removes
+//! the DLL. Nothing else of Discord's is touched, and neither button needs administrator rights.
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
+
+mod patch;
 
 #[cfg(not(windows))]
 fn main() {
@@ -22,14 +24,15 @@ fn main() -> eframe::Result {
 mod app {
    use std::{
       env, fs,
-      io::{BufRead, BufReader},
       os::windows::process::CommandExt,
       path::PathBuf,
-      process::{Command, Stdio},
+      process::Command,
       sync::{Arc, Mutex, PoisonError},
       thread,
       time::Duration,
    };
+
+   use crate::patch;
 
    use eframe::egui::{
       self, Color32, CornerRadius, FontId, Margin, PointerButton, RichText, Stroke, StrokeKind,
@@ -54,8 +57,8 @@ mod app {
    const TITLE_BAR_HEIGHT: f32 = 38.0;
    const TERMINAL_HEIGHT: f32 = 176.0;
 
-   /// The launcher CI built, which carries the loader. Empty in a plain build.
-   static LAUNCHER: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/rubycord.exe"));
+   /// The loader DLL CI built. Empty in a plain build, which Inject reports.
+   static LOADER: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/rubycord.dll"));
 
    /// What a line in the terminal is.
    #[derive(Clone, Copy)]
@@ -93,17 +96,6 @@ mod app {
             .unwrap_or_else(PoisonError::into_inner)
             .push(Line { kind, text });
          self.ctx.request_repaint();
-      }
-
-      /// A line the launcher printed: `ok ` and `warn ` mark the ones to colour.
-      fn launcher_line(&self, line: &str) {
-         if let Some(text) = line.strip_prefix("ok ") {
-            self.say(Kind::Ok, text);
-         } else if let Some(text) = line.strip_prefix("warn ") {
-            self.say(Kind::Warn, text);
-         } else if !line.trim().is_empty() {
-            self.say(Kind::Info, line.trim_end());
-         }
       }
    }
 
@@ -175,19 +167,26 @@ mod app {
       PathBuf::from(env::var_os("LOCALAPPDATA").unwrap_or_default())
    }
 
+   /// Holds only the undo record now.
    fn home() -> PathBuf {
       local().join("RubyCord")
    }
 
-   fn launcher() -> PathBuf {
-      home().join("rubycord.exe")
+   fn undo_path() -> PathBuf {
+      home().join("discord-exe.undo")
+   }
+
+   fn app_dir() -> PathBuf {
+      local().join("DiscordPhoenix").join("app")
    }
 
    fn discord() -> PathBuf {
-      local()
-         .join("DiscordPhoenix")
-         .join("app")
-         .join("Discord.exe")
+      app_dir().join("Discord.exe")
+   }
+
+   /// The loader, next to `Discord.exe`, named as the patch imports it.
+   fn loader_dll() -> PathBuf {
+      app_dir().join("rubycord.dll")
    }
 
    fn megabytes(bytes: usize) -> String {
@@ -238,7 +237,7 @@ mod app {
 
       fn refresh(&mut self) {
          self.phoenix = discord().is_file();
-         self.injected = launcher().is_file();
+         self.injected = patch::is_patched(&discord()).unwrap_or(false);
       }
 
       fn sink(&self, ctx: &egui::Context) -> Sink {
@@ -265,30 +264,39 @@ mod app {
       }
    }
 
-   /// Runs the launcher with `args` and shows what it prints. `None` when it could not start.
-   fn run_launcher(out: &Sink, args: &[&str]) -> Option<i32> {
-      let mut child = Command::new(launcher())
-         .args(args)
-         .creation_flags(CREATE_NO_WINDOW)
-         .stdin(Stdio::null())
-         .stdout(Stdio::piped())
-         .stderr(Stdio::null())
-         .spawn()
-         .map_err(|err| out.say(Kind::Error, format!("could not run the launcher: {err}")))
-         .ok()?;
-      if let Some(stdout) = child.stdout.take() {
-         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-            out.launcher_line(&line);
-         }
-      }
-      child.wait().ok()?.code()
+   /// Whether `Discord.exe` is running, which locks the file against the patch.
+   fn discord_running() -> bool {
+      fs::OpenOptions::new()
+         .read(true)
+         .write(true)
+         .open(discord())
+         .err()
+         // ERROR_SHARING_VIOLATION (32) / ERROR_LOCK_VIOLATION (33): a running Discord holds it.
+         .is_some_and(|err| matches!(err.raw_os_error(), Some(32 | 33)))
    }
 
-   /// Puts the launcher and its loader in place and points Discord Phoenix's shortcuts at it.
+   /// Removes what earlier, launcher-and-shortcut versions of RubyCord left behind: the old
+   /// `%LOCALAPPDATA%\Ruby` folder, and the launcher (if present) is asked to point the shortcuts
+   /// it changed back at Discord Phoenix first.
+   fn clean_up_old(out: &Sink) {
+      let launcher = home().join("rubycord.exe");
+      if launcher.is_file() {
+         out.say(Kind::Info, "removing the old launcher and its shortcuts");
+         let _ = Command::new(&launcher)
+            .args(["--uninstall", "--quiet"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+      }
+      let _ = fs::remove_file(home().join("phoenix.dll"));
+      let _ = fs::remove_file(home().join("rubycord.ico"));
+      let _ = fs::remove_file(&launcher);
+      let _ = fs::remove_dir_all(local().join("Ruby"));
+   }
+
+   /// Drops the loader beside `Discord.exe` and patches `Discord.exe` to load it.
    fn inject(out: &Sink) -> Work {
       out.say(Kind::Cmd, "rubycord inject");
-      let discord = discord();
-      if !discord.is_file() {
+      if !discord().is_file() {
          out.say(
             Kind::Error,
             "Discord Phoenix is not installed. Install it, then press Inject.",
@@ -297,23 +305,42 @@ mod app {
       }
       out.say(
          Kind::Ok,
-         format!("found Discord Phoenix: {}", discord.display()),
+         format!("found Discord Phoenix: {}", discord().display()),
       );
-      if LAUNCHER.is_empty() {
+      if LOADER.is_empty() {
          out.say(
             Kind::Error,
-            "this copy was built without the launcher: download the installer from the releases",
+            "this copy was built without the loader: download the installer from the releases",
          );
          return Work::Failed;
       }
+      if discord_running() {
+         out.say(
+            Kind::Error,
+            "Discord Phoenix is running: quit it completely (check the tray), then press Inject.",
+         );
+         return Work::Failed;
+      }
+
+      clean_up_old(out);
+
+      let dll = loader_dll();
       out.say(
          Kind::Info,
          format!(
-            "writing the launcher ({}) to {}",
-            megabytes(LAUNCHER.len()),
-            home().display()
+            "writing the loader ({}) next to Discord.exe",
+            megabytes(LOADER.len())
          ),
       );
+      if let Err(err) = fs::write(&dll, LOADER) {
+         out.say(
+            Kind::Error,
+            format!("could not write {}: {err}", dll.display()),
+         );
+         return Work::Failed;
+      }
+      out.say(Kind::Ok, format!("loader: {}", dll.display()));
+
       if let Err(err) = fs::create_dir_all(home()) {
          out.say(
             Kind::Error,
@@ -321,76 +348,73 @@ mod app {
          );
          return Work::Failed;
       }
-      let launcher = launcher();
-      // A launcher left running keeps its file, which Windows lets us rename but not overwrite.
-      let old = launcher.with_extension("exe.old");
-      let _ = fs::remove_file(&old);
-      if launcher.is_file() {
-         let _ = fs::rename(&launcher, &old);
-      }
-      if let Err(err) = fs::write(&launcher, LAUNCHER) {
-         out.say(Kind::Error, format!("could not write the launcher: {err}"));
-         return Work::Failed;
-      }
-      let _ = fs::remove_file(&old);
       out.say(
          Kind::Info,
-         "running the launcher: install the loader and the shortcuts",
+         "patching Discord.exe so it loads RubyCord on every launch",
       );
-      match run_launcher(out, &["--install"]) {
-         Some(0) => {
+      match patch::inject(&discord(), &undo_path()) {
+         Ok(()) => {
             out.say(
                Kind::Ok,
-               "injected: open Discord Phoenix from its usual shortcut",
+               "patched Discord.exe (its import table now loads rubycord.dll)",
+            );
+            out.say(
+               Kind::Ok,
+               "injected: just open Discord Phoenix as you always do",
             );
             Work::Injected
          },
-         Some(3) => {
+         Err(patch::Error::Io(err)) if matches!(err.raw_os_error(), Some(32 | 33)) => {
+            let _ = fs::remove_file(&dll);
             out.say(
                Kind::Error,
-               "no Discord Phoenix shortcut to redirect: pin or create one (Desktop, Start Menu or taskbar), then press Inject again",
+               "Discord Phoenix is running: quit it, then press Inject.",
             );
             Work::Failed
          },
-         Some(2) => {
-            out.say(Kind::Error, "Discord Phoenix is not installed");
-            Work::Failed
-         },
-         code => {
-            let detail = fs::read_to_string(home().join("last-error.txt")).unwrap_or_default();
-            out.say(
-               Kind::Error,
-               format!(
-                  "the launcher failed ({code:?}): {}",
-                  detail.lines().next().unwrap_or("")
-               ),
-            );
+         Err(err) => {
+            let _ = fs::remove_file(&dll);
+            out.say(Kind::Error, format!("could not patch Discord.exe: {err}"));
             Work::Failed
          },
       }
    }
 
-   /// Points the shortcuts back at Discord Phoenix and deletes what Inject made.
+   /// Restores `Discord.exe` exactly and removes the loader.
    fn uninject(out: &Sink) -> Work {
       out.say(Kind::Cmd, "rubycord un-inject");
-      if launcher().is_file() {
-         out.say(Kind::Info, "running the launcher: restore the shortcuts");
-         // The launcher restores the shortcuts, but it cannot delete the file it runs from.
-         run_launcher(out, &["--uninstall", "--quiet"]);
-      } else {
-         out.say(Kind::Warn, "no launcher found: nothing to restore");
+      if discord_running() {
+         out.say(
+            Kind::Error,
+            "Discord Phoenix is running: quit it completely, then press Un-Inject.",
+         );
+         return Work::Failed;
       }
-      out.say(Kind::Info, format!("deleting {}", home().display()));
-      match fs::remove_dir_all(home()) {
-         Ok(()) => out.say(Kind::Ok, "deleted"),
-         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            out.say(Kind::Info, "nothing to delete");
-         },
-         Err(_) => out.say(
-            Kind::Warn,
-            "Discord is still using some files: close it, then press Un-Inject again to delete them",
+      clean_up_old(out);
+      out.say(Kind::Info, "restoring Discord.exe");
+      match patch::restore(&discord(), &undo_path()) {
+         Ok(true) => out.say(Kind::Ok, "Discord.exe restored to its original bytes"),
+         Ok(false) => out.say(
+            Kind::Info,
+            "Discord.exe is already unpatched (a Discord update replaced it)",
          ),
+         Err(patch::Error::NothingToRestore) => out.say(Kind::Info, "no patch to undo"),
+         Err(err) => {
+            out.say(Kind::Error, format!("could not restore Discord.exe: {err}"));
+            return Work::Failed;
+         },
       }
+      let dll = loader_dll();
+      if dll.is_file() {
+         match fs::remove_file(&dll) {
+            Ok(()) => out.say(Kind::Ok, format!("removed {}", dll.display())),
+            Err(_) => out.say(
+               Kind::Warn,
+               "could not remove rubycord.dll (close Discord and try again)",
+            ),
+         }
+      }
+      let _ = fs::remove_dir_all(home());
       out.say(
          Kind::Ok,
          "un-injected: Discord Phoenix opens as it did before",
@@ -398,9 +422,9 @@ mod app {
       Work::Removed
    }
 
-   /// Opens Discord Phoenix through the launcher, which also offers to restart a running one.
+   /// Opens Discord Phoenix, now patched, so it starts with RubyCord.
    fn open_discord() {
-      let _ = Command::new(launcher()).spawn();
+      let _ = Command::new(discord()).current_dir(app_dir()).spawn();
    }
 
    impl eframe::App for App {

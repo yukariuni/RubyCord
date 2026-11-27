@@ -17,15 +17,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build the loader, the launcher with it embedded, then the installer with that
+      - name: Build the loader, then the installer with it embedded
         shell: pwsh
         env:
           RUSTFLAGS: -C target-feature=+crt-static
         run: |
           cargo build --locked --release -p phoenix-loader
           $env:RUBYCORD_LOADER_DLL = "$PWD\target\release\phoenix.dll"
-          cargo build --locked --release -p phoenix-inject
-          $env:RUBYCORD_LAUNCHER_EXE = "$PWD\target\release\phoenix-inject.exe"
           cargo build --locked --release -p rubycord-installer
       - uses: actions/upload-artifact@v4
         with:
