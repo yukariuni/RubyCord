@@ -1,76 +1,31 @@
-//! The Ruby logo, a cut ruby seen from the side, drawn from a few flat facets so it needs no
-//! image file. Shared with the launcher, which writes it as an `.ico` for its shortcuts, so this
-//! file depends on nothing.
+//! The Ruby logo, a faceted red gem with an R cut into it, from the image the user supplied. Shared with the launcher, which writes
+//! it as an `.ico` for its shortcuts, so this file depends on nothing.
 
-type Point = (f32, f32);
-
-/// Facets in `0.0..=1.0` square coordinates, painted in order, so later ones lie on top.
-const FACETS: &[(&[Point], u32)] = &[
-   // Crown: the table and its two sides.
-   (
-      &[(0.30, 0.14), (0.70, 0.14), (0.60, 0.32), (0.40, 0.32)],
-      0xFFFF_6B81,
-   ),
-   (&[(0.14, 0.32), (0.30, 0.14), (0.40, 0.32)], 0xFFE0_294F),
-   (&[(0.86, 0.32), (0.70, 0.14), (0.60, 0.32)], 0xFFC2_1A40),
-   // Pavilion, down to the point.
-   (&[(0.14, 0.32), (0.40, 0.32), (0.50, 0.90)], 0xFFC4_153F),
-   (&[(0.40, 0.32), (0.60, 0.32), (0.50, 0.90)], 0xFFE8_325A),
-   (&[(0.60, 0.32), (0.86, 0.32), (0.50, 0.90)], 0xFF92_102F),
-   // Glint on the table.
-   (
-      &[(0.38, 0.18), (0.50, 0.18), (0.46, 0.27), (0.40, 0.27)],
-      0xFFFF_B3C0,
-   ),
+/// The logo's straight-alpha RGBA pixels at each size, made from the source image by
+/// `scripts/make-logo.py`.
+const BLOBS: [(usize, &[u8]); 4] = [
+   (16, include_bytes!("logo/16.rgba")),
+   (32, include_bytes!("logo/32.rgba")),
+   (48, include_bytes!("logo/48.rgba")),
+   (64, include_bytes!("logo/64.rgba")),
 ];
 
-/// Whether `p` lies inside the convex polygon `poly`.
-fn inside(poly: &[Point], p: Point) -> bool {
-   let mut sign = 0.0_f32;
-   for (i, &(ax, ay)) in poly.iter().enumerate() {
-      let (bx, by) = poly[(i + 1) % poly.len()];
-      let cross = (bx - ax) * (p.1 - ay) - (by - ay) * (p.0 - ax);
-      if cross != 0.0 {
-         if sign != 0.0 && (cross > 0.0) != (sign > 0.0) {
-            return false;
-         }
-         sign = cross;
-      }
-   }
-   true
-}
-
-/// The logo at `size` pixels square: `0xAARRGGBB` pixels, top row first, edges smoothed by 4×4
-/// samples.
+/// The logo at `size` pixels square: `0xAARRGGBB` pixels, top row first. A size without a blob is
+/// the largest one sampled down by nearest neighbour.
 pub fn pixels(size: usize) -> Vec<u32> {
-   const SAMPLES: usize = 4;
-   let mut out = Vec::with_capacity(size * size);
-   for y in 0..size {
-      for x in 0..size {
-         let (mut covered, mut r, mut g, mut b) = (0_u32, 0_u32, 0_u32, 0_u32);
-         for sy in 0..SAMPLES {
-            for sx in 0..SAMPLES {
-               let p = (
-                  (x as f32 + (sx as f32 + 0.5) / SAMPLES as f32) / size as f32,
-                  (y as f32 + (sy as f32 + 0.5) / SAMPLES as f32) / size as f32,
-               );
-               if let Some(&(_, color)) = FACETS.iter().rev().find(|(poly, _)| inside(poly, p)) {
-                  covered += 1;
-                  r += (color >> 16) & 0xFF;
-                  g += (color >> 8) & 0xFF;
-                  b += color & 0xFF;
-               }
-            }
-         }
-         out.push(if covered == 0 {
-            0
-         } else {
-            let alpha = covered * 255 / (SAMPLES * SAMPLES) as u32;
-            alpha << 24 | (r / covered) << 16 | (g / covered) << 8 | b / covered
-         });
-      }
-   }
-   out
+   let (from, rgba) = BLOBS
+      .iter()
+      .find(|(known, _)| *known == size)
+      .copied()
+      .unwrap_or(BLOBS[BLOBS.len() - 1]);
+   (0..size * size)
+      .map(|i| {
+         let (x, y) = (i % size * from / size, i / size * from / size);
+         let at = (y * from + x) * 4;
+         let [r, g, b, a] = [rgba[at], rgba[at + 1], rgba[at + 2], rgba[at + 3]].map(u32::from);
+         a << 24 | r << 16 | g << 8 | b
+      })
+      .collect()
 }
 
 /// An `.ico` holding the logo at each of `sizes` (at most 255 pixels).
@@ -116,17 +71,21 @@ mod tests {
    use super::*;
 
    #[test]
-   fn draws_a_gem_with_clear_corners() {
-      let image = pixels(32);
-      assert_eq!(image.len(), 32 * 32);
-      assert_eq!(image[0], 0, "the top left corner is outside the gem");
-      assert_eq!(image[31 * 32], 0, "so is the bottom left");
-      let middle = image[12 * 32 + 16];
-      assert_eq!(middle >> 24, 255, "the middle is solid");
-      assert!(
-         image.iter().any(|&p| (1..255).contains(&(p >> 24))),
-         "edges are smoothed"
-      );
+   fn has_a_solid_logo_on_a_clear_background() {
+      for size in [16, 32, 48, 64, 24] {
+         let image = pixels(size);
+         assert_eq!(image.len(), size * size);
+         assert_eq!(image[0] >> 24, 0, "{size}: the top left corner is clear");
+         let drawn = image.iter().filter(|&&p| p >> 24 != 0).count();
+         assert!(
+            drawn > size * size / 4,
+            "{size}: the logo fills a good part of the square"
+         );
+         assert!(
+            image.iter().any(|&p| p >> 24 == 255),
+            "{size}: something is fully solid"
+         );
+      }
    }
 
    #[test]

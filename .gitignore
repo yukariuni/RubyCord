@@ -28,6 +28,7 @@
 !crates/*/src/**/*.rs
 !crates/runtime/phoenix.d.ts
 !crates/ui-desktop/src/dashboard.html
+!crates/ui-desktop/src/logo/*.rgba
 !crates/ui-mobile/src/props.in
 !crates/ui-mobile/src/templates.json
 !crates/patcher/keys/
