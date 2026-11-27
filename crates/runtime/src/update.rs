@@ -20,7 +20,7 @@ use std::{
 };
 
 use crate::Notice;
-/// This build's version, `<UTC commit date>-<short hash>` (`build.rs`).
+/// This build's version, `YEAR.MAJOR.MINOR` from the workspace `Cargo.toml` (`build.rs`).
 pub const VERSION: &str = env!("PHOENIX_VERSION");
 /// Ruby hosts no update server. While `ASSETS` is empty, checks and the plugin list report
 /// that and stop; set both to a server serving `version.json` and `plugins/` to turn them on.

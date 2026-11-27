@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "patcher"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -603,7 +603,7 @@ dependencies = [
 
 [[package]]
 name = "patcher-web"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "getrandom 0.2.17",
  "js-sys",
@@ -614,7 +614,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-hook"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "iced-x86",
@@ -625,14 +625,14 @@ dependencies = [
 
 [[package]]
 name = "phoenix-inject"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "misstep",
 ]
 
 [[package]]
 name = "phoenix-loader"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "android_logger",
  "libc",
@@ -648,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "crc32fast",
  "flub",
@@ -665,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime-desktop"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "libc",
@@ -681,7 +681,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime-mobile"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "jni-sys",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-sigs"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "memchr",
@@ -711,7 +711,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-ui-desktop"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "log",
@@ -719,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-ui-mobile"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
  "phoenix-wire",
@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-wire"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "flub",
 ]
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "sigscan"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "misstep",
  "phoenix-hook",
@@ -1093,7 +1093,7 @@ dependencies = [
 
 [[package]]
 name = "stand-in"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "phoenix-sigs",
  "serde",
@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "stand-in-demo"
-version = "0.1.0"
+version = "2026.1.0"
 dependencies = [
  "libc",
  "misstep",

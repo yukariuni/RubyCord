@@ -55,6 +55,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -62,7 +63,9 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # YEAR.MAJOR.MINOR, from the workspace Cargo.toml.
+          version=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n 1)
           gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
           gh release create latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Ruby (latest build)" --notes "Built from $GITHUB_SHA" \
+            --title "Ruby $version" --notes "Ruby $version, built from $GITHUB_SHA" \
             dist/ruby_discord_client.exe dist/ruby_discord_client-linux

@@ -133,6 +133,12 @@ Read this file before changing code. Every fact here cost someone hours to learn
 The debug shell answers anyone on the phone's loopback, and `/eval` runs JS with the Discord
 session. Leave it off outside development.
 
+## Versions
+
+`YEAR.MAJOR.MINOR` (`2026.1.0`), set once in `[workspace.package]` of `Cargo.toml`. Major updates bump the
+second number and reset the third to 0; minor updates bump the third, up to 999. Bump it in the commit
+that ships the change, and let `cargo check` refresh `Cargo.lock` (CI builds with `--locked`).
+
 ## Code style
 
 - Rust is edition 2024, three-space indent, width 100, pinned in `.rustfmt.toml`. Run

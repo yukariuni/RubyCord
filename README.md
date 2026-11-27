@@ -41,6 +41,10 @@ cargo build --release -p phoenix-loader -p phoenix-inject
 
 Ruby has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
 
+## Versions
+
+`YEAR.MAJOR.MINOR`, like `2026.1.0`: the year, then a number that goes up for a major update (and restarts the minor number at 0), then a number for minor updates, 0 to 999. It lives in `version` under `[workspace.package]` in `Cargo.toml` (Cargo wants no leading zeros, so it is `2026.1.0`, not `2026.1.00`). The release, the Windows exe's file properties and Settings → Ruby all show it.
+
 ## How it works
 
 - **Unlock**: the access gate check in Phoenix's native binary is located by strings and code shape rather than fixed offsets and patched to allow startup.
