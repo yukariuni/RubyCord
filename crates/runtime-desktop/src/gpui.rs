@@ -2204,7 +2204,7 @@ fn render_themes_tab(
       b.action_row(
          "ruby-themes-import",
          "Import a theme",
-         "Pick a .css file. Custom properties on :root (--bg, --surface, --border, --text,           --muted, --accent, --radius) restyle these pages, and DevTools applies every rule.           Enabled themes stack in name order.",
+         "Pick a .css file. Custom properties on :root (--bg, --surface, --border, --text,           --muted, --accent, --radius, or border-radius on *) restyle these pages, and DevTools applies every rule.           Enabled themes stack in name order.",
          "Import theme",
          BtnVariant::Secondary,
          BtnSize::Medium,

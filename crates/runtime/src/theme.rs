@@ -248,8 +248,8 @@ fn resolve(vars: &Vars, name: &str) -> Option<String> {
    None
 }
 
-/// The custom properties set by `:root` and `html` rules. Everything else, at-rules included,
-/// is skipped.
+/// The custom properties set by `:root` and `html` rules, and a `border-radius` set on `:root`,
+/// `*` or `body` as `--radius`. Everything else, at-rules included, is skipped.
 fn parse(css: &str) -> Vars {
    let mut plain = String::with_capacity(css.len());
    let mut rest = css;
@@ -268,18 +268,28 @@ fn parse(css: &str) -> Vars {
       rest = after;
       // An at-rule's inner rule leaves its own `}` behind, which the next selector then holds.
       let selector = selector.rsplit('}').next().unwrap_or(selector);
-      if !selector
-         .split(',')
-         .any(|part| matches!(part.trim(), ":root" | "html"))
-      {
+      let parts = || selector.split(',').map(str::trim);
+      let root = parts().any(|part| matches!(part, ":root" | "html"));
+      let everything = parts().any(|part| matches!(part, "*" | "*::before" | "*::after" | "body"));
+      if !root && !everything {
          continue;
       }
       for declaration in body.split(';') {
-         if let Some((name, value)) = declaration.split_once(':')
-            && name.trim().starts_with("--")
-            && !value.trim().is_empty()
-         {
-            vars.insert(name.trim().to_owned(), value.trim().to_owned());
+         let Some((name, value)) = declaration.split_once(':') else {
+            continue;
+         };
+         let (name, value) = (
+            name.trim(),
+            value.trim().trim_end_matches("!important").trim(),
+         );
+         if value.is_empty() {
+            continue;
+         }
+         if root && name.starts_with("--") {
+            vars.insert(name.to_owned(), value.to_owned());
+         // Square-corner themes set this on `*`: Ruby's cards take it as their radius.
+         } else if name == "border-radius" {
+            vars.insert("--radius".to_owned(), value.to_owned());
          }
       }
    }
@@ -347,22 +357,6 @@ fn parse_color(text: &str) -> Option<u32> {
 mod tests {
    use super::*;
 
-   const SAMPLE: &str = "/* Ruby theme. Custom properties on :root restyle Ruby's pages. */
-   :root {
-      --bg: #1a0f14;
-      --surface: #251319;
-      --border: #4a2330;
-      --text: #f5e6ea;
-      --muted: #b08a94;
-      --accent: #e0115f;
-      --radius: 12px;
-      /* DevTools only */
-      --bar: #251319;
-      --hover: #2d1920;
-      --row-line: #331a22;
-   }
-   ";
-
    #[test]
    fn colors() {
       assert_eq!(parse_color("#f00"), Some(0xFFFF_0000));
@@ -378,11 +372,22 @@ mod tests {
    }
 
    #[test]
-   fn palette_from_the_sample() {
-      let palette = palette_of(&parse(SAMPLE));
+   fn palette_from_root_variables() {
+      let palette = palette_of(&parse(
+         ":root { --bg: #1a0f14; --accent: #e0115f; --radius: 12px; }",
+      ));
       assert_eq!(palette.bg, Some(0xFF1A_0F14));
       assert_eq!(palette.accent, Some(0xFFE0_115F));
       assert_eq!(palette.radius, Some(12.0));
+   }
+
+   #[test]
+   fn square_corners_from_a_universal_rule() {
+      let css = "/** @name Carre */ *, *::before, *::after { border-radius: 0 !important; }
+         .card { border-radius: 9px } [class^=\"x_\"]:has(a) { display: none !important }";
+      let palette = palette_of(&parse(css));
+      assert_eq!(palette.radius, Some(0.0));
+      assert_ne!(palette, Palette::default());
    }
 
    #[test]
