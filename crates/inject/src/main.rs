@@ -590,8 +590,9 @@ mod windows {
    }
 
    /// `--install`: puts the launcher, the loader and the shortcuts in place without starting
-   /// Discord. Exits 0 when done, 2 without Discord Phoenix, and 1 otherwise, with the reason in
-   /// `last-error.txt` beside the launcher.
+   /// Discord. Exits 0 when done, 2 without Discord Phoenix, 3 when it found no Discord Phoenix
+   /// shortcut to point at the launcher, and 1 otherwise, with the reason in `last-error.txt`
+   /// beside the launcher.
    fn install_only(local: &Path, home: &Path) -> i32 {
       if !local
          .join("DiscordPhoenix")
@@ -604,7 +605,8 @@ mod windows {
       let done = install(local, home)
          .and_then(|_| crate::shortcuts::sync(local, &home.join("rubycord.exe"), false));
       match done {
-         Ok(()) => 0,
+         Ok(0) => 3,
+         Ok(_) => 0,
          Err(err) => {
             let _ = fs::write(home.join("last-error.txt"), format!("{err:?}"));
             1

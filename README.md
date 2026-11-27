@@ -9,7 +9,7 @@ No root, no Xposed, and on desktop Discord's own files stay untouched.
 Every push to `main` builds the two downloads on the **latest** release (Releases page). Download one, quit Discord Phoenix, run it.
 
 **Windows**: run `rubycord-installer.exe`. A window opens with two buttons:
-- **Inject** installs the launcher to `%LOCALAPPDATA%\RubyCord` and points your **Discord Phoenix** Start Menu and Desktop shortcuts at it. From then on, opening Discord Phoenix the usual way loads RubyCord. Discord's own files are not changed and no administrator rights are needed.
+- **Inject** installs the launcher to `%LOCALAPPDATA%\RubyCord` and points every shortcut you already have to Discord Phoenix at it (Start Menu, Desktop, pinned to the taskbar, Startup). From then on, opening Discord Phoenix the usual way loads RubyCord. It creates no shortcut of its own, does not change Discord's files and needs no administrator rights.
 - **Un-Inject** points the shortcuts back at Discord Phoenix and deletes what Inject made.
 
 The window also shows whether Discord Phoenix was found and whether RubyCord is injected. (The file is unsigned, so SmartScreen asks once: More info → Run anyway. It needs OpenGL 2, which any normal graphics driver has.)
@@ -19,10 +19,10 @@ The window also shows whether Discord Phoenix was found and whether RubyCord is 
 Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
-- Windows: a pinned taskbar icon keeps its old target, so unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, press Inject again. A `discord://` link or Windows startup entry starts Discord without RubyCord.
+- Windows: if Discord's updater recreates its Start Menu shortcut, press Inject again. A `discord://` link or a Windows startup entry in the registry starts Discord Phoenix without RubyCord, because only shortcuts are redirected.
 - To update, download the new file and run it again.
 - On Linux, run `./rubycord-installer-linux` and pick 1 (Inject) or 2 (Un-Inject), or pass `--uninstall`. Discord's own files are never modified.
-- The **RubyCord (access gate only)** entry starts Discord without plugins, in case a Discord update breaks the runtime.
+- To start Discord Phoenix without the plugins, in case a Discord update breaks the runtime, run `%LOCALAPPDATA%\RubyCord\rubycord.exe --no-runtime`.
 
 ### Building it yourself (Windows)
 

@@ -197,8 +197,11 @@ mod app {
          .map_err(|err| format!("Could not run the launcher: {err}"))?;
       match status.code() {
          Some(0) => {
-            Ok("Injected. Open Discord Phoenix as usual and RubyCord loads with it.".to_owned())
+            Ok("Injected. Open Discord Phoenix from its usual shortcut and RubyCord loads with it.".to_owned())
          },
+         Some(3) => Err(
+            "RubyCord is installed, but no Discord Phoenix shortcut was found to point at it. Pin or create a shortcut to Discord Phoenix (Desktop, Start Menu or taskbar), then press Inject again.".to_owned(),
+         ),
          Some(2) => Err(
             "Discord Phoenix is not installed. Install it first, then press Inject again."
                .to_owned(),
