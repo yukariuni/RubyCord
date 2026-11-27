@@ -11,33 +11,17 @@
 //! [`literal`] finds strings ELF packs without a trailing NUL.
 
 use std::{
-   collections::{
-      HashMap,
-      HashSet,
-   },
-   sync::{
-      Arc,
-      Mutex,
-      PoisonError,
-   },
+   collections::{HashMap, HashSet},
+   sync::{Arc, Mutex, PoisonError},
 };
 
 use phoenix_hook::{
    image::Image,
    pattern::Pattern,
-   x86::{
-      Abi,
-      Register,
-      call_target,
-      jump_target,
-   },
+   x86::{Abi, Register, call_target, jump_target},
 };
 
-use crate::{
-   Found,
-   StaffField,
-   one,
-};
+use crate::{Found, StaffField, one};
 
 /// Win64 `MessageRow::render` and `build_message_body` prologue: 8 pushes and
 /// `mov eax, imm32`, before `call __chkstk`.
@@ -88,7 +72,7 @@ pub fn windows_restart_script(image: &Image<'_>) -> Found<usize> {
 #[derive(Clone, Copy)]
 pub struct Prologue {
    pub pattern: Pattern,
-   pub len:     usize,
+   pub len: usize,
 }
 
 impl Prologue {
@@ -104,13 +88,13 @@ impl Prologue {
 #[derive(Clone, Copy)]
 pub struct Prologues {
    /// `MessageRow::render`, `build_message_body` and `MessageContextMenu`.
-   pub row:         Prologue,
+   pub row: Prologue,
    /// `host::section`, `Workspace::render_overlays`, `Store::delete_message`
    /// and `ReqwestTransport::send`.
-   pub frame:       Prologue,
+   pub frame: Prologue,
    pub media_fetch: Prologue,
    /// The asset loader, [`asset_load`].
-   pub asset_load:  Prologue,
+   pub asset_load: Prologue,
    /// `getEmojiUnavailableReason`, a leaf: its first four instructions on
    /// Win64, five on System V, up to the `jne`.
    pub emoji_check: Prologue,
@@ -123,46 +107,44 @@ impl Prologues {
    pub const fn of(abi: Abi) -> Self {
       const SYSV_FRAME: Prologue = Prologue {
          pattern: Pattern::new("55 41 57 41 56 41 55 41 54 53 48 81 EC ?? ?? ?? ??"),
-         len:     17,
+         len: 17,
       };
       match abi {
-         Abi::Win64 => {
-            Self {
-               row:         Prologue {
-                  pattern: ROW_PROLOGUE,
-                  len:     ROW_PROLOGUE_LEN,
-               },
-               frame:       Prologue {
-                  pattern: FRAME_PROLOGUE,
-                  len:     FRAME_PROLOGUE_LEN,
-               },
-               media_fetch: Prologue {
-                  pattern: MEDIA_FETCH_PROLOGUE,
-                  len:     MEDIA_FETCH_PROLOGUE_LEN,
-               },
-               asset_load:  Prologue {
-                  pattern: MEDIA_FETCH_PROLOGUE,
-                  len:     MEDIA_FETCH_PROLOGUE_LEN,
-               },
-               emoji_check: Prologue {
-                  pattern: Pattern::new("44 0F B6 ?? ?? B0 03 45 89 ?? 41 83 ?? 02"),
-                  len:     14,
-               },
-            }
+         Abi::Win64 => Self {
+            row: Prologue {
+               pattern: ROW_PROLOGUE,
+               len: ROW_PROLOGUE_LEN,
+            },
+            frame: Prologue {
+               pattern: FRAME_PROLOGUE,
+               len: FRAME_PROLOGUE_LEN,
+            },
+            media_fetch: Prologue {
+               pattern: MEDIA_FETCH_PROLOGUE,
+               len: MEDIA_FETCH_PROLOGUE_LEN,
+            },
+            asset_load: Prologue {
+               pattern: MEDIA_FETCH_PROLOGUE,
+               len: MEDIA_FETCH_PROLOGUE_LEN,
+            },
+            emoji_check: Prologue {
+               pattern: Pattern::new("44 0F B6 ?? ?? B0 03 45 89 ?? 41 83 ?? 02"),
+               len: 14,
+            },
          },
          Abi::SysV => {
             Self {
-               row:         SYSV_FRAME,
-               frame:       SYSV_FRAME,
+               row: SYSV_FRAME,
+               frame: SYSV_FRAME,
                media_fetch: SYSV_FRAME,
                // Four pushes and `sub rsp, imm32`.
-               asset_load:  Prologue {
+               asset_load: Prologue {
                   pattern: Pattern::new("41 57 41 56 41 54 53 48 81 EC ?? ?? ?? ??"),
-                  len:     14,
+                  len: 14,
                },
                emoji_check: Prologue {
                   pattern: Pattern::new("0F B6 ?? ?? B0 03 89 ?? 83 ?? 02 83 ?? 0E"),
-                  len:     14,
+                  len: 14,
                },
             }
          },
@@ -332,7 +314,7 @@ pub mod layout {
 /// [`call_target`] into code, or every RIP-relative `lea`. One pass replaces a
 /// `.text` scan per lookup, about a second each on `Discord.exe`.
 struct RefIndex {
-   key:  (usize, usize),
+   key: (usize, usize),
    base: usize,
    refs: Vec<u64>,
 }
@@ -757,12 +739,12 @@ fn same_code(image: &Image<'_>, a: usize, b: usize) -> bool {
          lines
             .into_iter()
             .take(end)
-            .map(|line| {
-               match line.target.filter(|target| local.contains(target)) {
+            .map(
+               |line| match line.target.filter(|target| local.contains(target)) {
                   Some(target) => format!("{} +{:x}", line.len, target - func),
                   None => line.text,
-               }
-            })
+               },
+            )
             .collect(),
       )
    };
@@ -791,18 +773,14 @@ pub(crate) fn callees(image: &Image<'_>, start: usize, end: usize) -> Vec<usize>
 pub fn access_gate(image: &Image<'_>) -> Found<usize> {
    // The `call`'s offset in each: SysV aligns the stack with `push rax` first.
    let (caller, call) = match Abi::of(image) {
-      Abi::Win64 => {
-         (
-            Pattern::new("83 79 ?? 03 75 0C E8 ?? ?? ?? ?? 3C 02 0F 95 C0 EB 02 31 C0"),
-            6,
-         )
-      },
-      Abi::SysV => {
-         (
-            Pattern::new("83 7F ?? 03 75 ?? 50 E8 ?? ?? ?? ?? 3C 02 0F 95 C0 48 83 C4 08 C3"),
-            7,
-         )
-      },
+      Abi::Win64 => (
+         Pattern::new("83 79 ?? 03 75 0C E8 ?? ?? ?? ?? 3C 02 0F 95 C0 EB 02 31 C0"),
+         6,
+      ),
+      Abi::SysV => (
+         Pattern::new("83 7F ?? 03 75 ?? 50 E8 ?? ?? ?? ?? 3C 02 0F 95 C0 48 83 C4 08 C3"),
+         7,
+      ),
    };
    let caller = one("access gate caller", &image.scan(caller))?;
    let access = rel32_target(image, caller + call + 1).ok_or("access gate call does not decode")?;
@@ -820,7 +798,7 @@ pub fn access_gate(image: &Image<'_>) -> Found<usize> {
 /// where 0xFF is usable and 2 premium locked.
 #[derive(Clone, Copy, Debug)]
 pub struct EmojiCheck {
-   pub func:      usize,
+   pub func: usize,
    /// `EmojiContext.intention`, 3 (`CHAT`) for the message box.
    pub intention: usize,
 }
@@ -834,28 +812,22 @@ pub fn emoji_check(image: &Image<'_>) -> Found<EmojiCheck> {
    let abi = Abi::of(image);
    // And where the `movzx`'s ModRM sits.
    let (check, modrm) = match abi {
-      Abi::Win64 => {
-         (
-            Pattern::new("44 0F B6 ?? ?? B0 03 45 89 ?? 41 83 ?? 02 41 83 ?? 0E 75 01 C3"),
-            3,
-         )
-      },
-      Abi::SysV => {
-         (
-            Pattern::new("0F B6 ?? ?? B0 03 89 ?? 83 ?? 02 83 ?? 0E 75 01 C3"),
-            2,
-         )
-      },
+      Abi::Win64 => (
+         Pattern::new("44 0F B6 ?? ?? B0 03 45 89 ?? 41 83 ?? 02 41 83 ?? 0E 75 01 C3"),
+         3,
+      ),
+      Abi::SysV => (
+         Pattern::new("0F B6 ?? ?? B0 03 89 ?? 83 ?? 02 83 ?? 0E 75 01 C3"),
+         2,
+      ),
    };
    let func = one("emoji check", &image.scan(check))?;
    let (context, _) = reg(abi.arg(1));
    match image.read(func + modrm, 2) {
-      Some(&[modrm, disp]) if modrm & 0xC7 == 0x40 | context => {
-         Ok(EmojiCheck {
-            func,
-            intention: usize::from(disp),
-         })
-      },
+      Some(&[modrm, disp]) if modrm & 0xC7 == 0x40 | context => Ok(EmojiCheck {
+         func,
+         intention: usize::from(disp),
+      }),
       _ => Err(format!("emoji check at {func:#x} reads no context byte")),
    }
 }
@@ -870,7 +842,7 @@ pub const MESSAGE_REQUESTS_BADGE: &[u8] = b"dm-message-requests-badge";
 pub struct PendingCounts {
    /// The DM list's row badge, `fn(out, id: &str, count: u32, _, _) -> out`,
    /// which draws [`FRIENDS_BADGE`] and [`MESSAGE_REQUESTS_BADGE`] only.
-   pub badge:           usize,
+   pub badge: usize,
    /// `u32 f(&RelationshipStore)`, the incoming friend and game friend
    /// requests the DM list's Friends row and the inbox's Friends tab show.
    pub friend_requests: usize,
@@ -1023,11 +995,9 @@ fn count_source(image: &Image<'_>, site: usize) -> Found<usize> {
       // Win64 pads calls that can unwind with a `nop`.
       let before = lines[..at].iter().rev().find(|prev| prev.text != "nop");
       return match before {
-         Some(call) if call.text.starts_with("call ") => {
-            call
-               .target
-               .ok_or_else(|| format!("call at {:#x} has no target", call.addr))
-         },
+         Some(call) if call.text.starts_with("call ") => call
+            .target
+            .ok_or_else(|| format!("call at {:#x} has no target", call.addr)),
          _ => Err(format!("{reg} at {:#x} is no call's result", line.addr)),
       };
    }
@@ -1078,7 +1048,7 @@ pub fn entry_prologue(image: &Image<'_>, func: usize) -> Found<Prologue> {
 #[derive(Clone, Copy, Debug)]
 pub struct SettingsLabel {
    pub name: usize,
-   pub id:   usize,
+   pub id: usize,
 }
 
 /// Page 24's label, from its one loader: `lea rax, [name]` with length 7,
@@ -1130,12 +1100,10 @@ pub fn settings_visibility(image: &Image<'_>) -> Found<usize> {
    // `movzx ecx, <page>; mov al, 1; lea <arg2>, [rcx-9]; cmp <arg2>, 0xf; ja
    // ...`
    let (guard, imm) = match Abi::of(image) {
-      Abi::Win64 => {
-         (
-            Pattern::new("0F B6 C9 B0 01 44 8D 41 F7 41 83 F8 0F 77"),
-            12,
-         )
-      },
+      Abi::Win64 => (
+         Pattern::new("0F B6 C9 B0 01 44 8D 41 F7 41 83 F8 0F 77"),
+         12,
+      ),
       Abi::SysV => (Pattern::new("40 0F B6 CF B0 01 8D 51 F7 83 FA 0F 77"), 11),
    };
    Ok(one("settings visibility guard", &image.scan(guard))? + imm)
@@ -1144,7 +1112,7 @@ pub fn settings_visibility(image: &Image<'_>) -> Found<usize> {
 /// `host::section`, which renders a settings page, and where its state keeps
 /// the active page.
 pub struct Section {
-   pub func:        usize,
+   pub func: usize,
    pub page_offset: usize,
 }
 
@@ -1175,28 +1143,28 @@ pub fn settings_section(image: &Image<'_>) -> Found<Section> {
 #[derive(Debug, Clone)]
 pub struct Gpui {
    /// The `Location` `div_new` takes, a static in `.rdata`.
-   pub caller_loc:       usize,
-   pub div_new:          usize,
-   pub div_flex:         usize,
-   pub div_flex_col:     usize,
-   pub div_style_mut:    usize,
-   pub div_child_div:    usize,
+   pub caller_loc: usize,
+   pub div_new: usize,
+   pub div_flex: usize,
+   pub div_flex_col: usize,
+   pub div_style_mut: usize,
+   pub div_child_div: usize,
    pub div_child_button: usize,
-   pub div_into_any:     usize,
-   pub div_push_any:     Option<usize>,
-   pub str_into_any:     Option<usize>,
-   pub text_block:       usize,
-   pub switch_new:       usize,
-   pub switch_into_div:  usize,
-   pub button_new:       usize,
-   pub action_row:       usize,
-   pub alloc_or_oom:     usize,
+   pub div_into_any: usize,
+   pub div_push_any: Option<usize>,
+   pub str_into_any: Option<usize>,
+   pub text_block: usize,
+   pub switch_new: usize,
+   pub switch_into_div: usize,
+   pub button_new: usize,
+   pub action_row: usize,
+   pub alloc_or_oom: usize,
    /// Discord's `Switch` label, description and `on_change` setters, and a
    /// `Button::on_click`, which the layouts are read from.
-   pub switch_label:     usize,
-   pub switch_desc:      usize,
+   pub switch_label: usize,
+   pub switch_desc: usize,
    pub switch_on_change: usize,
-   pub button_on_click:  usize,
+   pub button_on_click: usize,
 }
 
 /// The builders, from the Developer Mode row of page 16 and the
@@ -1377,64 +1345,64 @@ fn arg1_lea_before(image: &Image<'_>, abi: Abi, call: usize) -> Option<usize> {
 #[derive(Debug, Clone, Copy)]
 pub struct StyleOffsets {
    /// `StyleRefinement` bytes, from `Interactivity::default`'s box.
-   pub bytes:           usize,
-   pub font_size:       usize,
-   pub line_height:     usize,
-   pub font_family:     usize,
-   pub text_color:      usize,
-   pub white_space:     usize,
-   pub flex_shrink:     usize,
-   pub background:      usize,
-   pub border_color:    usize,
-   pub overflow_x:      usize,
-   pub position:        usize,
-   pub flex_wrap:       usize,
-   pub display:         usize,
-   pub align_items:     usize,
+   pub bytes: usize,
+   pub font_size: usize,
+   pub line_height: usize,
+   pub font_family: usize,
+   pub text_color: usize,
+   pub white_space: usize,
+   pub flex_shrink: usize,
+   pub background: usize,
+   pub border_color: usize,
+   pub overflow_x: usize,
+   pub position: usize,
+   pub flex_wrap: usize,
+   pub display: usize,
+   pub align_items: usize,
    pub justify_content: usize,
-   pub border_widths:   [usize; 4],
-   pub corner_radii:    [usize; 4],
-   pub padding:         [usize; 4],
-   pub inset:           [usize; 4],
-   pub gap:             [usize; 2],
-   pub size:            [usize; 2],
-   pub min_size:        [usize; 2],
+   pub border_widths: [usize; 4],
+   pub corner_radii: [usize; 4],
+   pub padding: [usize; 4],
+   pub inset: [usize; 4],
+   pub gap: [usize; 2],
+   pub size: [usize; 2],
+   pub min_size: [usize; 2],
 }
 
 /// `gpui::Div`: its size, `SmallVec<[AnyElement; 2]>` children, and boxed
 /// `Interactivity`.
 #[derive(Debug, Clone, Copy)]
 pub struct DivLayout {
-   pub size:               usize,
-   pub children:           usize,
-   pub interactivity:      usize,
+   pub size: usize,
+   pub children: usize,
+   pub interactivity: usize,
    pub interactivity_size: usize,
 }
 
 /// `mana_gpui::components::switch::Switch`.
 #[derive(Debug, Clone, Copy)]
 pub struct SwitchLayout {
-   pub size:        usize,
-   pub label:       usize,
+   pub size: usize,
+   pub label: usize,
    pub description: usize,
-   pub on_change:   usize,
+   pub on_change: usize,
 }
 
 /// `mana_gpui::components::button::Button`.
 #[derive(Debug, Clone, Copy)]
 pub struct ButtonLayout {
-   pub size:     usize,
+   pub size: usize,
    pub on_click: usize,
-   pub variant:  usize,
+   pub variant: usize,
    /// The `ButtonSize` field.
-   pub scale:    usize,
+   pub scale: usize,
 }
 
 /// What the settings page and accessories build by hand.
 #[derive(Debug, Clone, Copy)]
 pub struct GpuiLayout {
-   pub style:  StyleOffsets,
-   pub div:    DivLayout,
+   pub style: StyleOffsets,
+   pub div: DivLayout,
    pub switch: SwitchLayout,
    pub button: ButtonLayout,
 }
@@ -1648,12 +1616,10 @@ fn button_style_fields(image: &Image<'_>, button_new: usize, size: usize) -> Fou
       {
          Ok((variant, scale))
       },
-      _ => {
-         Err(format!(
-            "Button variant and size stores are ambiguous ({:x?})",
-            &ranked[..ranked.len().min(4)]
-         ))
-      },
+      _ => Err(format!(
+         "Button variant and size stores are ambiguous ({:x?})",
+         &ranked[..ranked.len().min(4)]
+      )),
    }
 }
 
@@ -1761,9 +1727,12 @@ pub fn gpui_layouts(image: &Image<'_>, gpui: &Gpui) -> Found<GpuiLayout> {
       return Err("Button on_click sits past the Button".to_owned());
    }
    let (variant, scale) = button_style_fields(image, gpui.button_new, button_size)?;
-   check("Button::new", gpui.button_new, button_size, &[
-      on_click, variant, scale,
-   ])?;
+   check(
+      "Button::new",
+      gpui.button_new,
+      button_size,
+      &[on_click, variant, scale],
+   )?;
    let button = ButtonLayout {
       size: button_size,
       on_click,
@@ -1794,7 +1763,7 @@ pub fn gpui_layouts(image: &Image<'_>, gpui: &Gpui) -> Found<GpuiLayout> {
 
 /// `MessageRow::render`, and where its message keeps the id.
 pub struct MessageRow {
-   pub func:          usize,
+   pub func: usize,
    pub msg_id_offset: usize,
 }
 
@@ -1852,8 +1821,8 @@ pub fn message_row(image: &Image<'_>) -> Found<MessageRow> {
 
 /// `build_message_body`, and where its message and row colors sit.
 pub struct MessageBody {
-   pub func:              usize,
-   pub msg_id_offset:     usize,
+   pub func: usize,
+   pub msg_id_offset: usize,
    pub row_colors_offset: usize,
 }
 
@@ -2089,14 +2058,14 @@ pub struct MemberRow {
 /// member's user id.
 #[derive(Clone, Debug)]
 pub struct MemberName {
-   pub sites:        Vec<usize>,
+   pub sites: Vec<usize>,
    /// What the islands hand the detour.
-   pub frame:        Frame,
+   pub frame: Frame,
    /// `[frame+closure_slot]` holds the environment pointer at the calls;
    /// without one, `frame` is the environment pointer itself.
    pub closure_slot: Option<usize>,
    /// `[environment+env]` holds the pointer to the user id.
-   pub env:          usize,
+   pub env: usize,
 }
 
 /// The member row hands its name to a closure building the name's row: the
@@ -2186,13 +2155,11 @@ fn member_name(
          return None;
       }
    }
-   (!sites.is_empty()).then(|| {
-      MemberName {
-         sites: sites.into_iter().map(|at| body[at].addr).collect(),
-         frame,
-         closure_slot,
-         env,
-      }
+   (!sites.is_empty()).then(|| MemberName {
+      sites: sites.into_iter().map(|at| body[at].addr).collect(),
+      frame,
+      closure_slot,
+      env,
    })
 }
 
@@ -2242,15 +2209,15 @@ pub fn member_row(image: &Image<'_>) -> Found<MemberRow> {
 /// one the row's presence dot (`dm-status`) is keyed by; group DMs have none.
 #[derive(Clone, Debug)]
 pub struct DmRow {
-   pub func:  usize,
+   pub func: usize,
    /// The call adding the name box.
-   pub site:  usize,
+   pub site: usize,
    /// What the island hands the detour, which the slots are read from.
    pub frame: Frame,
    /// `[frame+some]` is the recipient's `Option` tag, zero for none.
-   pub some:  usize,
+   pub some: usize,
    /// `[frame+user]` is the recipient's user id when `some` is set.
-   pub user:  usize,
+   pub user: usize,
 }
 
 /// The single function loading `text`, as it is laid out in the string pool.
@@ -2401,25 +2368,25 @@ pub fn dm_row(image: &Image<'_>) -> Found<DmRow> {
 #[derive(Clone, Debug)]
 pub struct MessageHeader {
    /// The calls adding the name, one per display mode.
-   pub sites:      Vec<HeaderSite>,
+   pub sites: Vec<HeaderSite>,
    /// What the islands hand the detours, which the slots are read from.
-   pub frame:      Frame,
+   pub frame: Frame,
    /// `child_node(node, child) -> node`, adding a node as a child.
    pub child_node: usize,
-   pub svg:        NodeSvg,
+   pub svg: NodeSvg,
 }
 
 /// Discord's node SVG leaf, drawn from an asset path.
 #[derive(Clone, Copy, Debug)]
 pub struct NodeSvg {
    /// `svg_new(out, path ptr, path len, size: f32)`.
-   pub new:   usize,
+   pub new: usize,
    /// `push_svg(node, &leaf) -> node`, moving the leaf into a boxed child.
-   pub push:  usize,
+   pub push: usize,
    /// The leaf's color tag (`1` when set); the packed color follows it.
    pub color: usize,
    /// The leaf's size, which `push_svg` copies.
-   pub size:  usize,
+   pub size: usize,
 }
 
 /// A `call child_node` adding the name wrapper to a header row.
@@ -2442,19 +2409,15 @@ const fn child_node_head(abi: Abi) -> [u8; 16] {
    match abi {
       // `sub rsp,48h; lea rax,[rsp+28h]; and dword ptr [rax],0; mov
       // [rax+8],rdx`
-      Abi::Win64 => {
-         [
-            0x48, 0x83, 0xEC, 0x48, 0x48, 0x8D, 0x44, 0x24, 0x28, 0x83, 0x20, 0x00, 0x48, 0x89,
-            0x50, 0x08,
-         ]
-      },
+      Abi::Win64 => [
+         0x48, 0x83, 0xEC, 0x48, 0x48, 0x8D, 0x44, 0x24, 0x28, 0x83, 0x20, 0x00, 0x48, 0x89, 0x50,
+         0x08,
+      ],
       // `sub rsp,28h; lea rax,[rsp+8]; and dword ptr [rax],0; mov [rax+8],rsi`
-      Abi::SysV => {
-         [
-            0x48, 0x83, 0xEC, 0x28, 0x48, 0x8D, 0x44, 0x24, 0x08, 0x83, 0x20, 0x00, 0x48, 0x89,
-            0x70, 0x08,
-         ]
-      },
+      Abi::SysV => [
+         0x48, 0x83, 0xEC, 0x28, 0x48, 0x8D, 0x44, 0x24, 0x08, 0x83, 0x20, 0x00, 0x48, 0x89, 0x70,
+         0x08,
+      ],
    }
 }
 
@@ -2599,11 +2562,9 @@ fn node_svg(image: &Image<'_>, body: usize) -> Found<NodeSvg> {
    // `xmm0` on System V), and the path at `out+10h`; the bundled icon is drawn
    // as a GPUI `Svg` elsewhere too.
    let out_path = format!("add {},10h", reg_name(abi.arg(0)));
-   let keeps_size = |line: &phoenix_hook::x86::Line| {
-      match abi {
-         Abi::Win64 => line.text == "movaps xmm6,xmm3",
-         Abi::SysV => line.text.starts_with("movss [rsp+") && line.text.ends_with(",xmm0"),
-      }
+   let keeps_size = |line: &phoenix_hook::x86::Line| match abi {
+      Abi::Win64 => line.text == "movaps xmm6,xmm3",
+      Abi::SysV => line.text.starts_with("movss [rsp+") && line.text.ends_with(",xmm0"),
    };
    svg_news.retain(|&func| {
       image.read(func, 0x30).is_some_and(|head| {
@@ -2673,10 +2634,10 @@ fn node_svg(image: &Image<'_>, body: usize) -> Found<NodeSvg> {
       .filter(|&size| svg_color + 8 <= size && size <= 0x100)
       .ok_or("node SVG leaf size not found")?;
    Ok(NodeSvg {
-      new:   svg_new,
-      push:  push_svg,
+      new: svg_new,
+      push: push_svg,
       color: svg_color,
-      size:  leaf_size,
+      size: leaf_size,
    })
 }
 
@@ -2688,13 +2649,13 @@ const BUNDLED_SVG: &[u8] = b"features_ui/platform-spotify.svg";
 #[derive(Clone, Copy, Debug)]
 pub struct SvgBuilders {
    /// `svg()`: `(sret, &caller_location) -> Svg`.
-   pub new:       usize,
+   pub new: usize,
    /// `Svg::path`: `(sret, svg, &'static str ptr, len) -> Svg`.
-   pub path:      usize,
+   pub path: usize,
    /// `Svg::into_any_element`: `(sret, svg) -> AnyElement`.
-   pub into_any:  usize,
+   pub into_any: usize,
    /// `Svg`'s size, which `into_any` moves.
-   pub size:      usize,
+   pub size: usize,
    /// Where `Svg` keeps its boxed `StyleRefinement`.
    pub style_box: usize,
 }
@@ -2832,7 +2793,9 @@ pub fn composer_gift(image: &Image<'_>) -> Found<usize> {
    const SOME_THEN_JMP: [u8; 9] = [0x48, 0xC7, 0x40, 0xF8, 0x01, 0x00, 0x00, 0x00, 0xE9];
    const NONE_STORE: [u8; 4] = [0x48, 0x83, 0xA4, 0x24];
 
-   let ids = literal(image, b"gift-button.wrap")
+   // Not `literal`: build 1.0.9269 packs this string without a NUL after it.
+   let ids = image
+      .find_bytes(b"gift-button.wrap")
       .into_iter()
       .flat_map(|text| lea_refs(image, text))
       .collect::<Vec<_>>();
@@ -2847,15 +2810,18 @@ pub fn composer_gift(image: &Image<'_>) -> Found<usize> {
       .ok_or("gift button stores no Some")?;
    let after = rel32_target(image, id + some + SOME_THEN_JMP.len())
       .ok_or("gift button jump does not decode")?;
-   let none = after.checked_sub(9).ok_or("gift button jumps to 0")?;
-   match image.read(none, 9) {
-      Some(store) if store.starts_with(&NONE_STORE) && store[8] == 0 => {},
-      _ => {
-         return Err(format!(
-            "gift button jumps to {after:#x}, after no None store"
-         ));
-      },
-   }
+   // `and qword [rsp + disp32], 0` (9 bytes) or, in build 1.0.9269, `and qword [rbp + disp32], 0`
+   // (8 bytes).
+   let store = |len: usize, head: &[u8]| {
+      let at = after.checked_sub(len)?;
+      image
+         .read(at, len)
+         .filter(|bytes| bytes.starts_with(head) && bytes[len - 1] == 0)
+         .map(|_| at)
+   };
+   let none = store(9, &NONE_STORE)
+      .or_else(|| store(8, &[0x48, 0x83, 0xA5]))
+      .ok_or_else(|| format!("gift button jumps to {after:#x}, after no None store"))?;
    let code = none
       .checked_sub(start)
       .and_then(|len| image.read(start, len))
@@ -2980,40 +2946,38 @@ pub fn staff(image: &Image<'_>) -> Found<StaffField> {
       {
          Ok(direct)
       },
-      _ => {
-         Err(format!(
-            "staff flag reads disagree ({} variants)",
-            found.len()
-         ))
-      },
+      _ => Err(format!(
+         "staff flag reads disagree ({} variants)",
+         found.len()
+      )),
    }
 }
 
 /// `MessageContextMenu` builder and native `MenuItem` helpers for injecting
 /// `phoenix.ui.addMessageAction` entries into right-click and `...` menus.
 pub struct MessageContextMenu {
-   pub build_fn:          usize,
-   pub msg_ptr_offset:    usize,
-   pub msg_id_offset:     usize,
+   pub build_fn: usize,
+   pub msg_ptr_offset: usize,
+   pub msg_id_offset: usize,
    pub channel_id_offset: usize,
-   pub props_new:         usize,
-   pub with_id:           usize,
-   pub with_icon:         usize,
-   pub with_color:        usize,
-   pub vec_push:          usize,
-   pub layout:            MenuLayout,
+   pub props_new: usize,
+   pub with_id: usize,
+   pub with_icon: usize,
+   pub with_color: usize,
+   pub vec_push: usize,
+   pub layout: MenuLayout,
 }
 
 /// `MenuItem` and its `Action` variant.
 #[derive(Debug, Clone, Copy)]
 pub struct MenuLayout {
-   pub size:         usize,
+   pub size: usize,
    /// `MenuItemProps` inside `MenuItem::Action`.
-   pub props:        usize,
-   pub props_size:   usize,
-   pub action_tag:   u64,
+   pub props: usize,
+   pub props_size: usize,
+   pub action_tag: u64,
    /// The click handler `Rc<dyn Fn>`, and the word before it Discord zeroes.
-   pub on_click:     usize,
+   pub on_click: usize,
    pub on_click_tag: usize,
 }
 
@@ -3293,31 +3257,31 @@ fn string_leas(image: &Image<'_>, needles: &[&[u8]]) -> HashMap<usize, Vec<usize
 /// scrolling), GPUI's `WM_USER+5` force-redraw validation-number offset, and
 /// the backdrop's click-outside wiring.
 pub struct Modal {
-   pub overlay_render:           usize,
-   pub vec_push_any:             usize,
-   pub modal_new:                usize,
-   pub modal_into_any:           usize,
-   pub modal_child_div:          usize,
-   pub modal_footer_button:      usize,
-   pub div_id:                   usize,
+   pub overlay_render: usize,
+   pub vec_push_any: usize,
+   pub modal_new: usize,
+   pub modal_into_any: usize,
+   pub modal_child_div: usize,
+   pub modal_footer_button: usize,
+   pub div_id: usize,
    pub window_validation_offset: usize,
-   pub dismiss:                  Dismiss,
-   pub layout:                   ModalLayout,
+   pub dismiss: Dismiss,
+   pub layout: ModalLayout,
 }
 
 /// `mana_html::hosted::modal::Modal`.
 #[derive(Debug, Clone, Copy)]
 pub struct ModalLayout {
-   pub size:     usize,
+   pub size: usize,
    /// `Vec<AnyElement>` of body children and of footer buttons.
    pub children: usize,
-   pub footer:   usize,
+   pub footer: usize,
    /// `Option<SharedString>`.
    pub subtitle: usize,
    /// `Option<Rc<dyn Fn(&mut Window, &mut App)>>`.
    pub on_close: usize,
    /// The `ModalSize` field.
-   pub scale:    usize,
+   pub scale: usize,
 }
 
 /// What Discord's overlay `backdrop` uses to close on a press outside the
@@ -3331,11 +3295,11 @@ pub struct Dismiss {
    /// `Interactivity` offset of the mouse-down listener `Vec`.
    pub mouse_down_listeners: usize,
    /// `Vec<Box<dyn ..>>::push(vec, data, vtable)`.
-   pub listener_push:        usize,
+   pub listener_push: usize,
    /// `Hitbox::is_hovered(&Hitbox, &Window) -> bool`.
-   pub hitbox_is_hovered:    usize,
+   pub hitbox_is_hovered: usize,
    /// `App` offset of `propagate_event`.
-   pub propagate_event:      usize,
+   pub propagate_event: usize,
 }
 
 /// Locates `Workspace::render_overlays` (`nav-overlay-popout-layer`), `Modal`
@@ -3353,13 +3317,16 @@ pub fn modal(image: &Image<'_>, div_into_any: usize, div: &DivLayout) -> Found<M
    // `Vec` is not the footer's.
    const MODAL_TYPE: &[u8] = b"mana_html::hosted::modal::Modal";
    const BUTTON_TYPE: &[u8] = b"mana_gpui::components::button::Button";
-   let leas = string_leas(image, &[
-      b"nav-overlay-popout-layer",
-      b"mana-modal",
-      MODAL_TYPE,
-      BUTTON_TYPE,
-      b"game-server-shop-carousel",
-   ]);
+   let leas = string_leas(
+      image,
+      &[
+         b"nav-overlay-popout-layer",
+         b"mana-modal",
+         MODAL_TYPE,
+         BUTTON_TYPE,
+         b"game-server-shop-carousel",
+      ],
+   );
    let leas_of = |addr: usize| leas.get(&addr).cloned().unwrap_or_default();
 
    let overlay_str = one(
@@ -3526,10 +3493,10 @@ pub struct WaylandFrame {
    /// `WaylandWindowStatePtr::frame(&window, requested, force)`, which hands
    /// the window's `request_frame` callback `state + force_render` as its
    /// `force_render`.
-   pub frame:        usize,
+   pub frame: usize,
    pub force_render: usize,
    /// calloop's `Ping::ping(&ping)`, safe from any thread.
-   pub ping:         usize,
+   pub ping: usize,
 }
 
 /// Locates [`WaylandFrame`] from `frame`'s start and the `request_frame` that
@@ -3595,12 +3562,10 @@ fn clear_winner(what: &str, ranked: &[(usize, usize)], margin: usize) -> Found<u
       [(top, value), rest @ ..] if rest.first().is_none_or(|&(next, _)| *top >= margin * next) => {
          Ok(*value)
       },
-      _ => {
-         Err(format!(
-            "{what} is ambiguous ({:x?})",
-            &ranked[..ranked.len().min(4)]
-         ))
-      },
+      _ => Err(format!(
+         "{what} is ambiguous ({:x?})",
+         &ranked[..ranked.len().min(4)]
+      )),
    }
 }
 
@@ -3868,41 +3833,41 @@ fn on_mouse_down_shape(
 /// Native Mana/GPUI `FieldState`, `TextInput`, and `TextArea` bindings for
 /// in-app URL entry and plugin code editing.
 pub struct TextFields {
-   pub cx_new_single:       usize,
-   pub cx_new_multiline:    usize,
-   pub entity_map_get:      usize,
-   pub entity_downgrade:    usize,
-   pub weak_drop:           usize,
-   pub text_get:            usize,
-   pub set_value:           usize,
-   pub update_entity_dyn:   usize,
-   pub arc_drop_slow:       usize,
-   pub text_input_new:      usize,
+   pub cx_new_single: usize,
+   pub cx_new_multiline: usize,
+   pub entity_map_get: usize,
+   pub entity_downgrade: usize,
+   pub weak_drop: usize,
+   pub text_get: usize,
+   pub set_value: usize,
+   pub update_entity_dyn: usize,
+   pub arc_drop_slow: usize,
+   pub text_input_new: usize,
    pub text_input_into_any: usize,
-   pub text_area_new:       usize,
-   pub text_area_into_any:  usize,
-   pub layout:              FieldLayout,
+   pub text_area_new: usize,
+   pub text_area_into_any: usize,
+   pub layout: FieldLayout,
 }
 
 /// Mana `FieldState`, the hosted `TextInput` and `TextArea` built on it, and
 /// the GPUI handles they go through.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldLayout {
-   pub text_input_size:   usize,
+   pub text_input_size: usize,
    pub text_input_entity: usize,
-   pub text_area_size:    usize,
-   pub text_area_entity:  usize,
+   pub text_area_size: usize,
+   pub text_area_entity: usize,
    /// `TextArea`'s `min_rows: Option<u8>`, with `max_rows` 2 bytes on, or
    /// `None` when `TextArea::new` no longer shows them.
-   pub text_area_rows:    Option<usize>,
+   pub text_area_rows: Option<usize>,
    /// `FieldState`'s `Option<SharedString>` slots: the two placeholders and
    /// the value `set_value` clears.
-   pub placeholders:      [usize; 2],
-   pub pending_value:     usize,
+   pub placeholders: [usize; 2],
+   pub pending_value: usize,
    /// `App`'s `EntityMap`.
-   pub app_entities:      usize,
+   pub app_entities: usize,
    /// The `Weak` inside a `WeakEntity`, what `weak_drop` takes a pointer to.
-   pub weak_ptr:          usize,
+   pub weak_ptr: usize,
 }
 
 /// `FieldState::new(out, a, b)` and `new_multiline`, thunks that pass their
@@ -3914,33 +3879,29 @@ fn field_state_new(image: &Image<'_>, abi: Abi) -> Found<(usize, usize, usize)> 
    /// Thunk patterns and where the call or jump to the inner function sits.
    type Thunks<'a> = &'a [(Pattern, usize)];
    let (singles, multis): (Thunks<'_>, Thunks<'_>) = match abi {
-      Abi::Win64 => {
-         (
-            &[(
-               Pattern::new("56 48 83 EC 20 4D 89 C1 49 89 D0 48 89 CE 31 D2 E8"),
-               16,
-            )],
-            &[(
-               Pattern::new("56 48 83 EC 20 4D 89 C1 49 89 D0 48 89 CE B2 01 E8"),
-               16,
-            )],
-         )
-      },
-      Abi::SysV => {
-         (
-            &[
-               (Pattern::new("48 89 D1 48 89 F2 31 F6"), 8),
-               (Pattern::new("53 48 89 D1 48 89 F2 48 89 FB 31 F6"), 12),
-            ],
-            &[
-               (Pattern::new("48 89 D1 48 89 F2 6A 01 5E"), 9),
-               (
-                  Pattern::new("53 48 89 D1 48 89 F2 48 89 FB BE 01 00 00 00"),
-                  15,
-               ),
-            ],
-         )
-      },
+      Abi::Win64 => (
+         &[(
+            Pattern::new("56 48 83 EC 20 4D 89 C1 49 89 D0 48 89 CE 31 D2 E8"),
+            16,
+         )],
+         &[(
+            Pattern::new("56 48 83 EC 20 4D 89 C1 49 89 D0 48 89 CE B2 01 E8"),
+            16,
+         )],
+      ),
+      Abi::SysV => (
+         &[
+            (Pattern::new("48 89 D1 48 89 F2 31 F6"), 8),
+            (Pattern::new("53 48 89 D1 48 89 F2 48 89 FB 31 F6"), 12),
+         ],
+         &[
+            (Pattern::new("48 89 D1 48 89 F2 6A 01 5E"), 9),
+            (
+               Pattern::new("53 48 89 D1 48 89 F2 48 89 FB BE 01 00 00 00"),
+               15,
+            ),
+         ],
+      ),
    };
    let inner = |at: usize| {
       let code = image.read(at, 6)?;
@@ -4516,7 +4477,7 @@ pub fn media_fetch(image: &Image<'_>) -> Found<usize> {
 #[derive(Clone, Copy, Debug)]
 pub struct MessageJson {
    /// `fn(out: *mut Result<Value, Error>, message: *const Message)`.
-   pub to_value:   usize,
+   pub to_value: usize,
    /// `fn(value: *mut Value)`.
    pub drop_value: usize,
 }
