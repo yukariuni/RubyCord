@@ -37,7 +37,6 @@ mod app {
    };
 
    const BACKGROUND: Color32 = Color32::from_rgb(0x14, 0x15, 0x18);
-   const TITLE_BAR: Color32 = Color32::from_rgb(0x0F, 0x10, 0x12);
    const CARD: Color32 = Color32::from_rgb(0x1D, 0x1E, 0x22);
    const TERMINAL: Color32 = Color32::from_rgb(0x0B, 0x0C, 0x0E);
    const BORDER: Color32 = Color32::from_rgb(0x2B, 0x2D, 0x33);
@@ -83,14 +82,16 @@ mod app {
 
    impl Sink {
       fn say(&self, kind: Kind, text: impl Into<String>) {
+         let mut text = text.into();
+         let local = local().to_string_lossy().into_owned();
+         if !local.is_empty() {
+            text = text.replace(&local, "%LOCALAPPDATA%");
+         }
          self
             .lines
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .push(Line {
-               kind,
-               text: text.into(),
-            });
+            .push(Line { kind, text });
          self.ctx.request_repaint();
       }
 
@@ -528,19 +529,18 @@ mod app {
                            Kind::Info => OUTPUT,
                            _ => color,
                         };
-                        ui.horizontal_wrapped(|ui| {
-                           ui.spacing_mut().item_spacing.x = 0.0;
-                           ui.label(
-                              RichText::new(prefix)
-                                 .font(FontId::monospace(12.0))
-                                 .color(color),
+                        let font = FontId::monospace(12.0);
+                        let mut job = egui::text::LayoutJob::default();
+                        job.wrap.max_width = ui.available_width();
+                        job.wrap.break_anywhere = true;
+                        for (text, color) in [(prefix, color), (line.text.as_str(), text_color)] {
+                           job.append(
+                              text,
+                              0.0,
+                              egui::text::TextFormat::simple(font.clone(), color),
                            );
-                           ui.label(
-                              RichText::new(&line.text)
-                                 .font(FontId::monospace(12.0))
-                                 .color(text_color),
-                           );
-                        });
+                        }
+                        ui.label(job);
                      }
                      if busy {
                         // A blinking cursor while a job runs.
@@ -584,11 +584,6 @@ mod app {
          ctx.send_viewport_cmd(ViewportCommand::StartDrag);
       }
       let painter = ui.painter();
-      painter.rect_filled(bar, CornerRadius::ZERO, TITLE_BAR);
-      painter.line_segment(
-         [bar.left_bottom(), bar.right_bottom()],
-         Stroke::new(1.0, BORDER),
-      );
       let icon =
          egui::Rect::from_center_size(pos2(bar.left() + 20.0, bar.center().y), vec2(16.0, 16.0));
       painter.image(
