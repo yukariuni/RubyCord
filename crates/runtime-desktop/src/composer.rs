@@ -1,7 +1,10 @@
-//! The composer's Nitro gift button, which `phoenix.ui.hide("composer.gift")`
-//! leaves out.
+//! The composer's Nitro gift button, which `phoenix.ui.hide("composer.gift")` and a theme's
+//! `"hide": ["composer.gift"]` leave out.
 
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{
+   Mutex, OnceLock, PoisonError,
+   atomic::{AtomicBool, Ordering},
+};
 
 use phoenix_hook::image::Image;
 use phoenix_sigs::desktop;
@@ -23,6 +26,20 @@ pub fn install(image: &Image<'static>) {
       },
       Ok(site) => log::warn!("composer gift: {site:#x} is no jne"),
       Err(err) => log::warn!("composer gift: {err}, the gift button stays"),
+   }
+}
+
+/// Whether this build can hide the theme id `id`.
+pub fn supports(id: &str) -> bool {
+   id == "composer.gift" && GIFT.get().is_some()
+}
+
+/// Hides what the enabled themes ask for, and shows it again when they stop.
+pub fn apply(effects: &phoenix_runtime::theme::Effects) {
+   static HIDDEN: AtomicBool = AtomicBool::new(false);
+   let want = effects.hide.contains("composer.gift");
+   if want != HIDDEN.load(Ordering::Acquire) && hide_gift(want) {
+      HIDDEN.store(want, Ordering::Release);
    }
 }
 

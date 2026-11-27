@@ -12,13 +12,15 @@ use std::{
    ffi::c_void,
    mem::MaybeUninit,
    ptr,
-   sync::{LazyLock, Mutex, OnceLock, PoisonError},
+   sync::{
+      LazyLock, Mutex, OnceLock, PoisonError,
+      atomic::{AtomicBool, Ordering},
+   },
 };
 
 use phoenix_hook::image::Image;
 use phoenix_runtime::{
-   Chosen, Control,
-   theme::{self, Palette},
+   Chosen, Control, theme,
    update::{self, Catalog, Listed},
 };
 use phoenix_sigs::desktop::{self, GpuiLayout, StyleOffsets, layout};
@@ -298,12 +300,9 @@ impl Default for UiState {
    }
 }
 
-/// The enabled themes' colors, set at the top of each Ruby page render for `card` and `divider`.
-static PALETTE: LazyLock<Mutex<Palette>> = LazyLock::new(|| Mutex::new(Palette::default()));
-
-fn palette() -> Palette {
-   *PALETTE.lock().unwrap_or_else(PoisonError::into_inner)
-}
+/// Whether an enabled theme squares the corners, set at the top of each Ruby page render for
+/// `card`.
+static SQUARE: AtomicBool = AtomicBool::new(false);
 
 static UI_STATE: LazyLock<Mutex<UiState>> = LazyLock::new(|| Mutex::new(UiState::default()));
 
@@ -460,7 +459,7 @@ unsafe extern "C" fn button_callback(
          Action::RefreshThemes => theme::reload(),
          Action::ImportTheme => {
             std::thread::spawn(|| {
-               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("css") else {
+               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("json") else {
                   return;
                };
                match theme::import(&file_name, &bytes) {
@@ -794,24 +793,17 @@ impl Builder {
 
    /// Rounded bordered card container matching Discord's native Settings cards.
    fn card(&self, gap_px: f32, pad_px: f32, radius_px: f32, border_alpha: f32) -> RawDiv {
-      let palette = palette();
+      let radius_px = if SQUARE.load(Ordering::Relaxed) {
+         0.0
+      } else {
+         radius_px
+      };
       let mut d = self.v_stack(gap_px);
       self.style_div(&mut d, |s| {
          s.lengths(&s.at.border_widths, gpui_px(1.0));
-         s.lengths(
-            &s.at.corner_radii,
-            gpui_px(palette.radius.unwrap_or(radius_px)),
-         );
+         s.lengths(&s.at.corner_radii, gpui_px(radius_px));
          s.lengths(&s.at.padding, gpui_px(pad_px));
-         s.hsla(
-            s.at.border_color,
-            palette
-               .border
-               .map_or([0.62, 0.05, 0.55, border_alpha], argb_to_hsla),
-         );
-         if let Some(surface) = palette.surface {
-            s.solid_background(argb_to_hsla(surface));
-         }
+         s.hsla(s.at.border_color, [0.62, 0.05, 0.55, border_alpha]);
       });
       d
    }
@@ -836,14 +828,10 @@ impl Builder {
    /// Subtle 1px horizontal divider line between sections or rows.
    fn divider(&self) -> RawDiv {
       let mut d = self.raw_div();
-      let border = palette().border;
       self.style_div(&mut d, |s| {
          s.length(s.at.border_widths[2], gpui_px(1.0));
          s.length(s.at.size[1], gpui_px(1.0));
-         s.hsla(
-            s.at.border_color,
-            border.map_or([0.62, 0.05, 0.55, 0.16], argb_to_hsla),
-         );
+         s.hsla(s.at.border_color, [0.62, 0.05, 0.55, 0.16]);
       });
       d
    }
@@ -1539,14 +1527,10 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
    let enabled_count = plugins.iter().filter(|p| p.enabled).count();
    let disabled_count = plugins.len().saturating_sub(enabled_count);
 
-   let palette = theme::palette();
-   *PALETTE.lock().unwrap_or_else(PoisonError::into_inner) = palette;
+   SQUARE.store(theme::effects().square, Ordering::Relaxed);
    let themes = theme::list();
 
    let mut root = b.v_stack(16.0);
-   if let Some(bg) = palette.bg {
-      b.style_div(&mut root, |s| s.solid_background(argb_to_hsla(bg)));
-   }
 
    // 1. Header + Category Tab Bar
    let summary = format!(
@@ -1556,11 +1540,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
       phoenix_ui_desktop::DEVTOOLS_SHORTCUT,
    );
    root = b.push_div(root, b.text_block("Ruby", &summary));
-   if let Some(label) = b.text_line(
-      "RUBY SETTINGS",
-      palette.muted.map_or(ACCESSORY_MUTED, argb_to_hsla),
-      12.0,
-   ) {
+   if let Some(label) = b.text_line("RUBY SETTINGS", ACCESSORY_MUTED, 12.0) {
       root = b.push_div(root, label);
    }
 
@@ -1605,13 +1585,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
       Action::SetTab(Tab::General),
    );
    root = b.push_div(root, tab_bar);
-   let mut rule = b.divider();
-   if let Some(accent) = palette.accent {
-      b.style_div(&mut rule, |s| {
-         s.hsla(s.at.border_color, argb_to_hsla(accent))
-      });
-   }
-   root = b.push_div(root, rule);
+   root = b.push_div(root, b.divider());
 
    // 2. Active Category Content
    match tab {
@@ -1628,7 +1602,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
          );
       },
       Tab::Themes => {
-         root = render_themes_tab(&b, root, &themes, palette);
+         root = render_themes_tab(&b, root, &themes);
       },
       Tab::Catalog => {
          let installed: HashSet<String> = plugins.iter().map(|p| p.name.clone()).collect();
@@ -2195,18 +2169,44 @@ fn render_catalog_tab(
    root
 }
 
-fn render_themes_tab(
-   b: &Builder,
-   mut root: RawDiv,
-   themes: &[theme::Listed],
-   palette: Palette,
-) -> RawDiv {
+/// What a theme does, and which of it this Discord build can't do.
+fn theme_summary(theme: &theme::Listed) -> String {
+   if let Some(error) = &theme.error {
+      return format!("Not a valid theme: {error}");
+   }
+   let mut parts = Vec::new();
+   if theme.square {
+      parts.push("square corners (Ruby's pages only for now)".to_owned());
+   }
+   for id in &theme.hide {
+      let known = theme::HIDES.iter().any(|(known, _)| known == id);
+      parts.push(match (known, crate::composer::supports(id)) {
+         (false, _) => format!("unknown id {id}"),
+         (true, false) => format!("{id} (not supported on this Discord build yet)"),
+         (true, true) => format!("hides {id}"),
+      });
+   }
+   if parts.is_empty() {
+      "Does nothing".to_owned()
+   } else {
+      parts.join(", ")
+   }
+}
+
+fn render_themes_tab(b: &Builder, mut root: RawDiv, themes: &[theme::Listed]) -> RawDiv {
+   let ids = theme::HIDES
+      .iter()
+      .map(|(id, _)| *id)
+      .collect::<Vec<_>>()
+      .join(", ");
    root = b.push_div(
       root,
       b.action_row(
          "ruby-themes-import",
          "Import a theme",
-         "Pick a .css file. Custom properties on :root (--bg, --surface, --border, --text, --muted, --accent, --radius) restyle these pages, and DevTools applies every rule. Enabled themes stack in name order.",
+         &format!(
+            "Pick a .json theme, like {{\"square\": true, \"hide\": [\"composer.gift\"]}}. \"hide\" takes: {ids}."
+         ),
          "Import theme",
          BtnVariant::Secondary,
          BtnSize::Medium,
@@ -2227,11 +2227,7 @@ fn render_themes_tab(
    );
    let mut card = b.card(12.0, 16.0, 8.0, 0.20);
    if themes.is_empty() {
-      if let Some(line) = b.text_line(
-         "No themes found.",
-         palette.text.map_or(ACCESSORY_MUTED, argb_to_hsla),
-         13.0,
-      ) {
+      if let Some(line) = b.text_line("No themes found.", ACCESSORY_MUTED, 13.0) {
          card = b.push_div(card, line);
       }
    }
@@ -2244,11 +2240,7 @@ fn render_themes_tab(
          b.switch_row(
             &format!("ruby-theme-{}", theme.name),
             &theme.name,
-            Some(if theme.used {
-               "Restyles Ruby's pages and DevTools"
-            } else {
-               "Sets none of the colors Ruby reads, so only DevTools uses it"
-            }),
+            Some(&theme_summary(theme)),
             theme.enabled,
             Action::ToggleTheme(theme.name.clone()),
          ),

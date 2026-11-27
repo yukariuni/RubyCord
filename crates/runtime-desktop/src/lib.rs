@@ -306,6 +306,9 @@ impl Platform for Desktop {
          return;
       };
       let _ = std::fs::create_dir_all(state.plugins_dir());
+      // What was on at the last run is on again before the first page opens.
+      phoenix_runtime::theme::set_applier(composer::apply);
+      phoenix_runtime::theme::start();
       // Any local process could reach the shell's `/eval` and the session, so
       // it only listens once DevTools is opened, and only for holders of this
       // start's token. `RUBY_DEVTOOLS` starts it at launch, for `dev.ps1`.
@@ -365,16 +368,11 @@ impl Platform for Desktop {
 
    fn route(&self, request: &remote::Request) -> Option<remote::Reply> {
       let html = || {
-         // Enabled themes go last in <head>, so their rules win over the page's own.
-         let page = phoenix_ui_desktop::DASHBOARD_HTML.replacen(
-            "</head>",
-            &format!(
-               "<style id=\"ruby-theme\">{}</style></head>",
-               phoenix_runtime::theme::css()
-            ),
-            1,
-         );
-         ("200 OK", "text/html; charset=utf-8", page.into_bytes())
+         (
+            "200 OK",
+            "text/html; charset=utf-8",
+            phoenix_ui_desktop::DASHBOARD_HTML.as_bytes().to_vec(),
+         )
       };
       match (request.method.as_str(), request.path.as_str()) {
          ("GET", "/ui") => Some(html()),
