@@ -21,6 +21,7 @@ mod fetch;
 mod gateway_send;
 mod gpui;
 mod headers;
+mod hide;
 mod icons;
 mod js;
 mod members;
@@ -139,6 +140,7 @@ pub fn prepare() -> Result<(), Error> {
       modal::install(&image);
    }
    context_menu::install(&image);
+   hide::install(&image);
    // Before accessories hooks `MessageRow::render`, whose prologue the header
    // locators check.
    let header = X86_CODE.then(|| headers::locate(&image));
@@ -308,7 +310,7 @@ impl Platform for Desktop {
       };
       let _ = std::fs::create_dir_all(state.plugins_dir());
       // What was on at the last run is on again before the first page opens.
-      phoenix_runtime::theme::set_applier(composer::apply);
+      phoenix_runtime::theme::set_applier(hide::apply);
       phoenix_runtime::theme::start();
       // Any local process could reach the shell's `/eval` and the session, so
       // it only listens once DevTools is opened, and only for holders of this

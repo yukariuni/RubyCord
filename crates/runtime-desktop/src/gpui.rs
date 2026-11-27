@@ -1009,6 +1009,28 @@ pub fn raw_div() -> Option<RawDiv> {
    Some(Builder { sym }.raw_div())
 }
 
+/// Takes a freshly built `Div` out of the layout (`Display::None`, the last of block, flex, grid
+/// and none).
+///
+/// # Safety
+///
+/// `div` points to a live `gpui::Div`, or the `Stateful<Div>` that wraps it.
+pub unsafe fn display_none(div: *mut c_void) {
+   const DISPLAY_NONE: u8 = 3;
+   let Some(sym) = SYMBOLS.get() else {
+      return;
+   };
+   // SAFETY: `div_style_mut` takes the `Div` by pointer, as `style_div` does.
+   let ptr = unsafe { (sym.div_style_mut)(div.cast()) };
+   if !ptr.is_null() {
+      let style = Style {
+         ptr,
+         at: &sym.layout.style,
+      };
+      style.set(style.at.display, DISPLAY_NONE);
+   }
+}
+
 pub fn style_div(div: &mut RawDiv, f: impl FnOnce(&Style)) {
    if let Some(sym) = SYMBOLS.get() {
       Builder { sym }.style_div(div, f);
@@ -2180,7 +2202,7 @@ fn theme_summary(theme: &theme::Listed) -> String {
    }
    for id in &theme.hide {
       let known = theme::HIDES.iter().any(|(known, _)| known == id);
-      parts.push(match (known, crate::composer::supports(id)) {
+      parts.push(match (known, crate::hide::supports(id)) {
          (false, _) => format!("unknown id {id}"),
          (true, false) => format!("{id} (not supported on this Discord build yet)"),
          (true, true) => format!("hides {id}"),

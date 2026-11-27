@@ -35,7 +35,7 @@ pub fn supports(id: &str) -> bool {
 }
 
 /// Hides what the enabled themes ask for, and shows it again when they stop.
-pub fn apply(effects: &phoenix_runtime::theme::Effects) {
+pub(crate) fn apply(effects: &phoenix_runtime::theme::Effects) {
    static HIDDEN: AtomicBool = AtomicBool::new(false);
    let want = effects.hide.contains("composer.gift");
    if want != HIDDEN.load(Ordering::Acquire) && hide_gift(want) {

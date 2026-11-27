@@ -2837,6 +2837,33 @@ pub fn composer_gift(image: &Image<'_>) -> Found<usize> {
       .ok_or_else(|| format!("no jne skips the gift button before {none:#x}"))
 }
 
+/// `Div::id(out, div, name_ptr, name_len)`: the first call after the `lea` that loads
+/// `"game-server-shop-carousel"` as its third argument, which checks `ElementId::None` in
+/// `Interactivity` (`cmp byte [rcx + disp32], 0xff`). The string also sits in another literal
+/// this build, which no code loads as an argument, so only the loads count.
+pub fn div_id(image: &Image<'_>) -> Found<usize> {
+   let abi = Abi::of(image);
+   let loads: Vec<usize> = image
+      .find_bytes(b"game-server-shop-carousel")
+      .into_iter()
+      .flat_map(|text| lea_refs(image, text))
+      .filter(|&lea| image.read(lea, 3) == Some(&lea_rip(abi.arg(2))[..]))
+      .collect();
+   let load = one("game-server-shop-carousel load", &loads)?;
+   let div_id = calls_in(image, load, 0x30)
+      .first()
+      .ok_or("Div::id call after carousel anchor not found")?
+      .1;
+   if !image.read(div_id, 0x200).is_some_and(|code| {
+      code
+         .windows(7)
+         .any(|w| w[0] == 0x80 && w[1] & 0xF8 == 0xB8 && !matches!(w[1] & 7, 4 | 5) && w[6] == 0xFF)
+   }) {
+      return Err("Div::id element_id offset check failed".to_owned());
+   }
+   Ok(div_id)
+}
+
 /// `Store::delete_message`, the client's optimistic delete. It shares the map
 /// and index deletes with the `MESSAGE_DELETE` handler and takes a lock.
 pub fn optimistic_delete(image: &Image<'_>, message_delete: usize) -> Found<usize> {
@@ -3429,32 +3456,8 @@ pub fn modal(image: &Image<'_>, div_into_any: usize, div: &DivLayout) -> Found<M
       );
    }
 
-   // `Div::id` is the first call after `lea` of `"game-server-shop-carousel"`,
-   // checking `ElementId::None` in `Interactivity` (`cmp byte ptr [rcx +
-   // disp32], 0xff`).
-   let carousel = one(
-      "game-server-shop-carousel",
-      &image.find_bytes(b"game-server-shop-carousel"),
-   )?;
-   // `Div::id(div, id)` takes the id string as its third argument.
    let abi = Abi::of(image);
-   let carousel_leas: Vec<usize> = leas_of(carousel)
-      .into_iter()
-      .filter(|&lea| image.read(lea, 3) == Some(&lea_rip(abi.arg(2))[..]))
-      .collect();
-   let carousel_lea = one("game-server-shop-carousel load", &carousel_leas)?;
-   let div_id = calls_in(image, carousel_lea, 0x30)
-      .first()
-      .ok_or("Div::id call after carousel anchor not found")?
-      .1;
-   // `cmp byte [interactivity + disp32], 0xff`, `ElementId::None`.
-   if !image.read(div_id, 0x200).is_some_and(|code| {
-      code
-         .windows(7)
-         .any(|w| w[0] == 0x80 && w[1] & 0xF8 == 0xB8 && !matches!(w[1] & 7, 4 | 5) && w[6] == 0xFF)
-   }) {
-      return Err("Div::id element_id offset check failed".to_owned());
-   }
+   let div_id = div_id(image)?;
 
    let window_validation_offset = match abi {
       Abi::Win64 => window_validation(image)?,

@@ -32,7 +32,7 @@ cargo build --release -p phoenix-loader -p phoenix-inject
 ### Plugins and themes
 
 - Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → Ruby → Plugins.
-- There is no default theme. A theme is not CSS (Discord Phoenix has no page to style): it is a small `.json` file saying what to change, like `{ "square": true, "hide": ["composer.gift", "dm.nitro"] }`. In the Themes tab press **Import theme** and pick one. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`, turned on, and can be toggled there; adding, deleting or editing files in that folder shows up live. `hide` takes `dm.nitro`, `dm.quests`, `composer.stickers`, `composer.apps` and `composer.gift`; the Themes page says which of them this Discord build can do (only the gift button so far). `square` squares Ruby's own pages for now.
+- There is no default theme. A theme is not CSS (Discord Phoenix has no page to style): it is a small `.json` file saying what to change, like `{ "square": true, "hide": ["composer.gift", "dm.nitro"] }`. In the Themes tab press **Import theme** and pick one. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`, turned on, and can be toggled there; adding, deleting or editing files in that folder shows up live. `hide` takes `dm.nitro`, `dm.quests`, `composer.stickers`, `composer.apps` and `composer.gift`; the Themes page says which of them this Discord build can do (the gift button, the sticker button, and Nitro and Quests in the DM list; the apps button is not found yet). `square` squares Ruby's own pages for now.
 
 ### Other platforms
 
