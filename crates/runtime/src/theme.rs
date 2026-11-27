@@ -182,45 +182,15 @@ pub fn palette() -> Palette {
 }
 
 fn palette_of(vars: &Vars) -> Palette {
-   let color = |names: &[&str]| {
-      names
-         .iter()
-         .find_map(|name| resolve(vars, name).and_then(|value| parse_color(&value)))
-   };
+   let color = |name: &str| resolve(vars, name).and_then(|value| parse_color(&value));
    Palette {
-      bg: color(&[
-         "--bg",
-         "--background-primary",
-         "--background-base-low",
-         "--background-base-lowest",
-      ]),
-      surface: color(&[
-         "--surface",
-         "--background-secondary",
-         "--background-surface-high",
-         "--background-base-lower",
-      ]),
-      border: color(&[
-         "--border",
-         "--border-subtle",
-         "--border-normal",
-         "--background-modifier-accent",
-      ]),
-      text: color(&[
-         "--text",
-         "--text-normal",
-         "--text-default",
-         "--header-primary",
-      ]),
-      muted: color(&["--muted", "--text-muted", "--text-secondary"]),
-      accent: color(&[
-         "--accent",
-         "--brand-500",
-         "--brand-experiment",
-         "--brand-360",
-      ]),
-      radius: ["--radius", "--border-radius"].iter().find_map(|name| {
-         let value = resolve(vars, name)?;
+      bg: color("--bg"),
+      surface: color("--surface"),
+      border: color("--border"),
+      text: color("--text"),
+      muted: color("--muted"),
+      accent: color("--accent"),
+      radius: resolve(vars, "--radius").and_then(|value| {
          let px = value.strip_suffix("px").unwrap_or(&value).trim();
          px.parse::<f32>()
             .ok()
@@ -248,8 +218,8 @@ fn resolve(vars: &Vars, name: &str) -> Option<String> {
    None
 }
 
-/// The custom properties set by `:root` and `html` rules, and a `border-radius` set on `:root`,
-/// `*` or `body` as `--radius`. Everything else, at-rules included, is skipped.
+/// The custom properties set by `:root` and `html` rules. Everything else, at-rules included,
+/// is skipped.
 fn parse(css: &str) -> Vars {
    let mut plain = String::with_capacity(css.len());
    let mut rest = css;
@@ -268,28 +238,18 @@ fn parse(css: &str) -> Vars {
       rest = after;
       // An at-rule's inner rule leaves its own `}` behind, which the next selector then holds.
       let selector = selector.rsplit('}').next().unwrap_or(selector);
-      let parts = || selector.split(',').map(str::trim);
-      let root = parts().any(|part| matches!(part, ":root" | "html"));
-      let everything = parts().any(|part| matches!(part, "*" | "*::before" | "*::after" | "body"));
-      if !root && !everything {
+      if !selector
+         .split(',')
+         .any(|part| matches!(part.trim(), ":root" | "html"))
+      {
          continue;
       }
       for declaration in body.split(';') {
-         let Some((name, value)) = declaration.split_once(':') else {
-            continue;
-         };
-         let (name, value) = (
-            name.trim(),
-            value.trim().trim_end_matches("!important").trim(),
-         );
-         if value.is_empty() {
-            continue;
-         }
-         if root && name.starts_with("--") {
-            vars.insert(name.to_owned(), value.to_owned());
-         // Square-corner themes set this on `*`: Ruby's cards take it as their radius.
-         } else if name == "border-radius" {
-            vars.insert("--radius".to_owned(), value.to_owned());
+         if let Some((name, value)) = declaration.split_once(':')
+            && name.trim().starts_with("--")
+            && !value.trim().is_empty()
+         {
+            vars.insert(name.trim().to_owned(), value.trim().to_owned());
          }
       }
    }
@@ -379,29 +339,6 @@ mod tests {
       assert_eq!(palette.bg, Some(0xFF1A_0F14));
       assert_eq!(palette.accent, Some(0xFFE0_115F));
       assert_eq!(palette.radius, Some(12.0));
-   }
-
-   #[test]
-   fn square_corners_from_a_universal_rule() {
-      let css = "/** @name Carre */ *, *::before, *::after { border-radius: 0 !important; }
-         .card { border-radius: 9px } [class^=\"x_\"]:has(a) { display: none !important }";
-      let palette = palette_of(&parse(css));
-      assert_eq!(palette.radius, Some(0.0));
-      assert_ne!(palette, Palette::default());
-   }
-
-   #[test]
-   fn discord_theme_names_work() {
-      let palette = palette_of(&parse(
-         ":root { --background-primary: #111; --text-normal: rgb(255 255 255); --brand-500: #5865f2 }",
-      ));
-      assert_eq!(palette.bg, Some(0xFF11_1111));
-      assert_eq!(palette.text, Some(0xFFFF_FFFF));
-      assert_eq!(palette.accent, Some(0xFF58_65F2));
-      assert_eq!(
-         palette_of(&parse(":root { --other: red }")),
-         Palette::default()
-      );
    }
 
    #[test]

@@ -32,7 +32,7 @@ cargo build --release -p phoenix-loader -p phoenix-inject
 ### Plugins and themes
 
 - Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → Ruby → Plugins.
-- There is no default theme. In the Themes tab press **Import theme** and pick a `.css` file. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`, turned on, and can be toggled there. Custom properties on `:root` (`--bg`, `--surface`, `--border`, `--text`, `--muted`, `--accent`, `--radius`, or Discord's own names like `--background-primary`) and a `border-radius` on `*` restyle Ruby's own pages; the DevTools page applies every rule.
+- There is no default theme. In the Themes tab press **Import theme** and pick a `.css` file. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`, turned on, and can be toggled there. Custom properties on `:root` (`--bg`, `--surface`, `--border`, `--text`, `--muted`, `--accent`, `--radius`) restyle Ruby's own pages; the DevTools page applies every rule.
 
 ### Other platforms
 
