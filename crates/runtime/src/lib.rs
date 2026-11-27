@@ -99,7 +99,7 @@ pub enum Error {
    NotUtf8 { url: String },
    #[error(transparent)]
    Fetch(#[from] fetch::FetchError),
-   #[error("update Ruby to {version} first, its plugins need it")]
+   #[error("update RubyCord to {version} first, its plugins need it")]
    LoaderOutdated { version: String },
 }
 

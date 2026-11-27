@@ -72,7 +72,7 @@ pub fn start(home: PathBuf, bundled: Vec<Plugin>) -> Result<Started, Error> {
    phoenix_runtime::start(&Mobile, home, bundled)
 }
 
-/// Ruby's green, for update banners.
+/// RubyCord's green, for update banners.
 const ACCENT: i64 = 0xFF23_A55A;
 
 impl Platform for Mobile {
@@ -205,7 +205,7 @@ impl Platform for Mobile {
                |version| format!("Build {version}, tap to update in-app"),
             );
             banners::show_banner(
-               "Ruby update available".to_owned(),
+               "RubyCord update available".to_owned(),
                Some(body),
                Some("res://ic_mana_puzzle_piece_retry".to_owned()),
                Some(ACCENT),

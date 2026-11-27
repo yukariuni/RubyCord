@@ -194,10 +194,10 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
    let programs = known_folder(&FOLDER_PROGRAMS)?;
    let desktop = known_folder(&FOLDER_DESKTOP)?;
    let links = [
-      (programs.join("Ruby.lnk"), "", "Discord with Ruby"),
-      (desktop.join("Ruby.lnk"), "", "Discord with Ruby"),
+      (programs.join("RubyCord.lnk"), "", "Discord with RubyCord"),
+      (desktop.join("RubyCord.lnk"), "", "Discord with RubyCord"),
       (
-         programs.join("Ruby (access gate only).lnk"),
+         programs.join("RubyCord (access gate only).lnk"),
          "--no-runtime",
          "Discord past the access gate, without plugins",
       ),
@@ -208,9 +208,14 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
       unsafe { CoInitializeEx(ptr::null_mut(), APARTMENT_THREADED) },
       "CoInitializeEx",
    )?;
+   // The shortcuts from when RubyCord was called Ruby.
+   for old in ["Ruby.lnk", "Ruby (access gate only).lnk"] {
+      let _ = fs::remove_file(programs.join(old));
+      let _ = fs::remove_file(desktop.join(old));
+   }
    let discord_icon = local.join(r"DiscordPhoenix\app\Discord.exe");
-   // The Ruby logo the launcher writes beside itself, or Discord's own icon without it.
-   let logo = launcher.with_file_name("ruby.ico");
+   // The RubyCord logo the launcher writes beside itself, or Discord's own icon without it.
+   let logo = launcher.with_file_name("rubycord.ico");
    let icon = if logo.is_file() { &logo } else { &discord_icon };
    // shortcut: Start Menu and Desktop only. A pinned taskbar icon keeps its old target until
    // it is pinned again from the Start Menu, and Discord's updater may recreate its shortcut,

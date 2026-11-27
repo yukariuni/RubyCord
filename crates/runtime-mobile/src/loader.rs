@@ -115,7 +115,7 @@ pub fn adopt_staged(home: &Path, plugins: &Path) {
 
 fn run_loader_self_update() {
    update::set_status(Some("Downloading loader...".to_owned()));
-   let _ = crate::picker::toast("Downloading Ruby update...");
+   let _ = crate::picker::toast("Downloading RubyCord update...");
 
    let url = format!("{}{LOADER_ASSET}", update::ASSETS);
    let bytes = match phoenix_runtime::fetch::get(&url) {

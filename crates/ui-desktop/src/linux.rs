@@ -28,8 +28,8 @@ try:
 except (ValueError, ImportError):
     gi.require_version("AppIndicator3", "0.1")
     from gi.repository import AppIndicator3 as AI
-tray = AI.Indicator.new("ruby", sys.argv[1], AI.IndicatorCategory.APPLICATION_STATUS)
-tray.set_title("Ruby")
+tray = AI.Indicator.new("rubycord", sys.argv[1], AI.IndicatorCategory.APPLICATION_STATUS)
+tray.set_title("RubyCord")
 menu = Gtk.Menu()
 for at, label in enumerate(sys.argv[2:]):
     item = Gtk.MenuItem(label=label) if label else Gtk.SeparatorMenuItem()
@@ -66,7 +66,7 @@ fn spawn_reaped(command: &mut Command) -> Result<(), Error> {
       message: format!("{}: {err}", command.get_program().display()),
    })?;
    let _ = thread::Builder::new()
-      .name("ruby-reap".to_owned())
+      .name("rubycord-reap".to_owned())
       .spawn(move || child.wait());
    Ok(())
 }
@@ -101,14 +101,14 @@ impl DesktopHost for Host {
       let mut zenity = Command::new("zenity");
       zenity.args([
          "--file-selection".to_owned(),
-         format!("--title=Import Ruby file (.{ext})"),
+         format!("--title=Import RubyCord file (.{ext})"),
          format!("--file-filter=.{ext} files | *.{ext}"),
          "--file-filter=All Files | *".to_owned(),
       ]);
       let mut kdialog = Command::new("kdialog");
       kdialog.args([
          "--title".to_owned(),
-         format!("Import Ruby file (.{ext})"),
+         format!("Import RubyCord file (.{ext})"),
          "--getopenfilename".to_owned(),
          ".".to_owned(),
          format!("*.{ext}|.{ext} files"),
@@ -124,7 +124,7 @@ impl DesktopHost for Host {
 
    fn notify(title: &str, body: &str) {
       let mut send = Command::new("notify-send");
-      send.args(["--app-name=Ruby", "--", title, body]);
+      send.args(["--app-name=RubyCord", "--", title, body]);
       if let Err(err) = spawn_reaped(&mut send) {
          log::debug!("notify: {err}");
       }
@@ -134,7 +134,7 @@ impl DesktopHost for Host {
       static STARTED: Once = Once::new();
       STARTED.call_once(|| {
          if let Err(err) = start_indicator() {
-            log::info!("tray: {err}, press Ctrl+Shift+I in Discord for Ruby DevTools");
+            log::info!("tray: {err}, press Ctrl+Shift+I in Discord for RubyCord DevTools");
          }
       });
    }
@@ -177,7 +177,7 @@ fn start_indicator() -> Result<(), Error> {
       });
    };
    thread::Builder::new()
-      .name("ruby-tray".to_owned())
+      .name("rubycord-tray".to_owned())
       .spawn(move || {
          for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             if let Some(action) = line
@@ -193,7 +193,7 @@ fn start_indicator() -> Result<(), Error> {
          if child.wait().is_ok_and(|status| !status.success()) {
             log::info!(
                "tray: needs python3 with GTK 3 and AppIndicator bindings; press Ctrl+Shift+I in \
-                Discord for Ruby DevTools"
+                Discord for RubyCord DevTools"
             );
          }
       })

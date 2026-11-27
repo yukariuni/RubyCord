@@ -202,7 +202,7 @@ fn os_err(context: &str) -> Error {
    }
 }
 
-/// The Ruby logo as an icon `size` pixels square, built once and kept for the life of the
+/// The RubyCord logo as an icon `size` pixels square, built once and kept for the life of the
 /// process.
 fn logo_icon(size: usize) -> *mut c_void {
    static ICONS: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
@@ -273,7 +273,7 @@ unsafe fn create_logo_icon(size: usize) -> *mut c_void {
    }
 }
 
-/// Gives a Discord window the Ruby logo for its title bar, taskbar button and Alt+Tab. Cheap
+/// Gives a Discord window the RubyCord logo for its title bar, taskbar button and Alt+Tab. Cheap
 /// to repeat: it only sends a message when the window shows another icon.
 pub(crate) fn set_window_icons(hwnd: *mut c_void) {
    for (kind, size) in [(ICON_SMALL, 16), (ICON_BIG, 48)] {
@@ -333,8 +333,8 @@ fn empty_nid(hwnd: *mut c_void, uid: u32) -> NotifyIconDataW {
 
 type NotifyIcon = unsafe extern "system" fn(u32, *mut NotifyIconDataW) -> i32;
 
-/// Discord's `Shell_NotifyIconW`: its tray icon gets the Ruby logo, and its handle is kept for
-/// Ruby's notifications, so Ruby has no tray icon of its own.
+/// Discord's `Shell_NotifyIconW`: its tray icon gets the RubyCord logo, and its handle is kept for
+/// RubyCord's notifications, so RubyCord has no tray icon of its own.
 unsafe extern "system" fn notify_detour(message: u32, data: *mut NotifyIconDataW) -> i32 {
    let original = ORIGINAL_NOTIFY.load(Ordering::Acquire);
    if original == 0 {
@@ -442,10 +442,10 @@ fn hook_tray() {
       slot.write(notify_detour as *const () as usize);
       VirtualProtect(slot.cast(), size_of::<usize>(), old, &raw mut old);
    }
-   log::info!("tray: Discord's tray icon shows the Ruby logo");
+   log::info!("tray: Discord's tray icon shows the RubyCord logo");
 }
 
-/// Ruby has no tray icon: Discord's is the only one. This starts the Ctrl+Shift+I hook and the
+/// RubyCord has no tray icon: Discord's is the only one. This starts the Ctrl+Shift+I hook and the
 /// window icons.
 fn start_tray() {
    crate::webview::start_window_hook();
@@ -548,7 +548,7 @@ fn pick_path(ext: &str) -> Option<PathBuf> {
    let filter: Vec<u16> = format!("*.{ext}\0*.{ext}\0All Files (*.*)\0*.*\0\0")
       .encode_utf16()
       .collect();
-   let title = wide(&format!("Import Ruby file (.{ext})"));
+   let title = wide(&format!("Import RubyCord file (.{ext})"));
    let def_ext = wide(ext);
    #[expect(
       clippy::cast_possible_truncation,

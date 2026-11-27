@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Fast build, patch, install, hot-reload, and live debug CLI for Ruby.
+Fast build, patch, install, hot-reload, and live debug CLI for RubyCord.
 
 .EXAMPLE
 .\scripts\dev.ps1                     # Fast dev-fast Rust build + patch + install + launch
@@ -74,9 +74,9 @@ function Forward-DebugShell {
 # beside its plugins.
 function Get-DebugHeaders {
    if (-not $Desktop) { return @{} }
-   $tokenFile = Join-Path $env:LOCALAPPDATA "DiscordPhoenix\ruby\debug-shell-token"
+   $tokenFile = Join-Path $env:LOCALAPPDATA "DiscordPhoenix\rubycord\debug-shell-token"
    if (-not (Test-Path $tokenFile)) { return @{} }
-   @{ "X-Ruby-Token" = (Get-Content $tokenFile -Raw).Trim() }
+   @{ "X-RubyCord-Token" = (Get-Content $tokenFile -Raw).Trim() }
 }
 
 function Invoke-DebugGet([string]$Path) {
@@ -199,7 +199,7 @@ if ($Desktop) {
       $env:ESBUILD = Find-Esbuild
       node web/tools/bundle-plugins.ts
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      $pluginDir = Join-Path $env:LOCALAPPDATA "DiscordPhoenix\ruby\plugins"
+      $pluginDir = Join-Path $env:LOCALAPPDATA "DiscordPhoenix\rubycord\plugins"
       New-Item -ItemType Directory -Force $pluginDir | Out-Null
       (Get-Content (Join-Path $RepoRoot "web\plugins\index.json") -Raw | ConvertFrom-Json) |
          Where-Object { $_.name -ne "example" } |
@@ -214,7 +214,7 @@ if ($Desktop) {
          $injectArgs = @()
          if ($NoRuntime) { $injectArgs += "--no-runtime" }
          # The debug shell otherwise waits for DevTools to open; -Eval and friends need it.
-         $env:RUBY_DEVTOOLS = "1"
+         $env:RUBYCORD_DEVTOOLS = "1"
          $injectArgs += (Join-Path $outDir "phoenix.dll")
          & (Join-Path $outDir "phoenix-inject.exe") @injectArgs
          exit $LASTEXITCODE

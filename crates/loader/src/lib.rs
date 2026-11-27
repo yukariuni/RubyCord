@@ -10,19 +10,11 @@
 
 use std::{
    env,
-   panic::{
-      self,
-      AssertUnwindSafe,
-   },
+   panic::{self, AssertUnwindSafe},
    path::PathBuf,
 };
 
-use phoenix_runtime::{
-   Error,
-   Plugin,
-   Started,
-   console::Tee,
-};
+use phoenix_runtime::{Error, Plugin, Started, console::Tee};
 
 #[cfg(unix)]
 #[used]
@@ -94,9 +86,9 @@ extern "C" fn init() {
 ))]
 fn desktop() {
    logging();
-   if env::var_os("RUBY_GATE_ONLY").is_some() {
+   if env::var_os("RUBYCORD_GATE_ONLY").is_some() {
       match phoenix_runtime_desktop::open_gate_only() {
-         Ok(()) => log::info!("RUBY_GATE_ONLY: only the access gate is open"),
+         Ok(()) => log::info!("RUBYCORD_GATE_ONLY: only the access gate is open"),
          Err(err) => log::error!("phoenix could not open the access gate: {err}"),
       }
       return;
@@ -107,14 +99,14 @@ fn desktop() {
    }
    log::info!("hooked Discord in {:?}", started.elapsed());
    let _ = std::thread::Builder::new()
-      .name("ruby-init".to_owned())
+      .name("rubycord-init".to_owned())
       .spawn(run);
 }
 
 fn run() {
    // Unwinding out of a constructor aborts the host, so a bug here costs
    // plugins, not the app.
-   match panic::catch_unwind(AssertUnwindSafe(|| start(home(), bundled()))) {
+   match panic::catch_unwind(AssertUnwindSafe(|| start(migrated_home(), bundled()))) {
       Ok(Ok(started)) => {
          log::info!(
             "phoenix started on {} ({}), plugins: {:?}",
@@ -155,6 +147,17 @@ fn start(_home: PathBuf, _bundled: Vec<Plugin>) -> Result<Started, Error> {
    Err(Error::NoTarget)
 }
 
+/// [`home`], after moving the folder it had when RubyCord was called Ruby (plugins, themes,
+/// settings) to the new name, once.
+fn migrated_home() -> PathBuf {
+   let home = home();
+   let old = home.with_file_name("ruby");
+   if home.file_name().is_some_and(|name| name == "rubycord") && !home.exists() && old.is_dir() {
+      let _ = std::fs::rename(&old, &home);
+   }
+   home
+}
+
 fn home() -> PathBuf {
    if let Some(home) = env::var_os("PHOENIX_HOME") {
       return PathBuf::from(home);
@@ -182,7 +185,7 @@ fn home() -> PathBuf {
          },
          PathBuf::from,
       );
-      data.join("ruby")
+      data.join("rubycord")
    }
    #[cfg(target_os = "macos")]
    {
@@ -197,7 +200,7 @@ fn home() -> PathBuf {
          },
          PathBuf::from,
       );
-      data.join("ruby")
+      data.join("rubycord")
    }
    #[cfg(all(
       unix,
@@ -220,10 +223,10 @@ fn home() -> PathBuf {
    }
    #[cfg(windows)]
    {
-      // Sits directly under `%LOCALAPPDATA%\DiscordPhoenix\ruby` so its
+      // Sits directly under `%LOCALAPPDATA%\DiscordPhoenix\rubycord` so its
       // parent matches Phoenix's `store/<account>/cache.sqlite` root.
       let base = env::var_os("LOCALAPPDATA").map_or_else(env::temp_dir, PathBuf::from);
-      base.join("DiscordPhoenix").join("ruby")
+      base.join("DiscordPhoenix").join("rubycord")
    }
 }
 
@@ -255,28 +258,16 @@ fn bundled() -> Vec<Plugin> {
 mod unix {
    use std::{
       collections::BTreeMap,
-      ffi::{
-         CStr,
-         c_void,
-      },
-      fs::{
-         self,
-         File,
-      },
-      io::{
-         ErrorKind,
-         Read,
-      },
+      ffi::{CStr, c_void},
+      fs::{self, File},
+      io::{ErrorKind, Read},
       path::Path,
    };
 
    use misstep::ResultExt;
    use phoenix_runtime::Plugin;
    use phoenix_sigs::PLUGIN_BUNDLE;
-   use zip::{
-      ZipArchive,
-      result::ZipError,
-   };
+   use zip::{ZipArchive, result::ZipError};
 
    /// This library's path as the dynamic loader opened it.
    pub fn library_path() -> Option<&'static CStr> {
@@ -335,12 +326,7 @@ mod unix {
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 mod linux {
-   use std::{
-      env,
-      ffi::OsStr,
-      os::unix::ffi::OsStrExt,
-      path::Path,
-   };
+   use std::{env, ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
 
    /// The Linux client's executable. `AppRun` is a shell script, so the
    /// preload reaches it and every process it starts.
@@ -384,12 +370,7 @@ mod linux {
 
 #[cfg(target_os = "macos")]
 mod macos {
-   use std::{
-      env,
-      ffi::OsStr,
-      os::unix::ffi::OsStrExt,
-      path::Path,
-   };
+   use std::{env, ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
 
    /// macOS Phoenix's executable, `Discord.app/Contents/MacOS/Discord`. The
    /// Electron client's has the same name, and its registry walk then fails.
@@ -447,14 +428,8 @@ mod macos {
 #[cfg(target_os = "ios")]
 mod ios {
    use std::{
-      ffi::{
-         CStr,
-         c_void,
-      },
-      sync::atomic::{
-         AtomicBool,
-         Ordering,
-      },
+      ffi::{CStr, c_void},
+      sync::atomic::{AtomicBool, Ordering},
    };
 
    unsafe extern "C" {
@@ -615,10 +590,7 @@ fn android_files_dir_with(
 
 #[cfg(test)]
 mod tests {
-   use std::path::{
-      Path,
-      PathBuf,
-   };
+   use std::path::{Path, PathBuf};
 
    use super::android_files_dir_with;
 

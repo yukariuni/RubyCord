@@ -1,4 +1,4 @@
-# Ruby
+# RubyCord
 
 Patches Discord Phoenix (Discord's native Rust client) on Android, iOS, Windows, Linux, and macOS so it opens without the access gate, and injects a QuickJS plugin runtime. TypeScript plugins can hook gateway events and Discord API requests/responses, add UI buttons, decorations, message actions and slash commands, and get their own settings pages inside Discord.
 
@@ -8,42 +8,49 @@ No root, no Xposed, and on desktop Discord's own files stay untouched.
 
 Every push to `main` builds the two downloads on the **latest** release (Releases page). Download one, quit Discord Phoenix, run it.
 
-**Windows**: run `ruby_discord_client.exe`. It installs itself to `%LOCALAPPDATA%\Ruby`, points your **Discord Phoenix** Start Menu and Desktop shortcuts at itself, and starts Discord with Ruby loaded. From then on open **Discord Phoenix** as usual. (The file is unsigned, so SmartScreen asks once: More info → Run anyway.)
+**Windows**: run `rubycord-installer.exe`. A window opens with two buttons:
+- **Inject** installs the launcher to `%LOCALAPPDATA%\RubyCord` and points your **Discord Phoenix** Start Menu and Desktop shortcuts at it. From then on, opening Discord Phoenix the usual way loads RubyCord. Discord's own files are not changed and no administrator rights are needed.
+- **Un-Inject** points the shortcuts back at Discord Phoenix and deletes what Inject made.
 
-**Linux**: `chmod +x ruby_discord_client-linux && ./ruby_discord_client-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **Ruby** entry to your app menu.
+The window also shows whether Discord Phoenix was found and whether RubyCord is injected. (The file is unsigned, so SmartScreen asks once: More info → Run anyway. It needs OpenGL 2, which any normal graphics driver has.)
 
-Then in Discord open User Settings → **Ruby**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
+**Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
+
+Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
-- Windows: a pinned taskbar icon keeps its old target, so unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, run the exe again. A `discord://` link or Windows startup entry starts Discord without Ruby.
+- Windows: a pinned taskbar icon keeps its old target, so unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, press Inject again. A `discord://` link or Windows startup entry starts Discord without RubyCord.
 - To update, download the new file and run it again.
-- `ruby_discord_client.exe --uninstall` (Windows) or `./ruby_discord_client-linux --uninstall` removes Ruby; Discord's own files are never modified.
-- The **Ruby (access gate only)** entry starts Discord without plugins, in case a Discord update breaks the runtime.
+- On Linux, run `./rubycord-installer-linux` and pick 1 (Inject) or 2 (Un-Inject), or pass `--uninstall`. Discord's own files are never modified.
+- The **RubyCord (access gate only)** entry starts Discord without plugins, in case a Discord update breaks the runtime.
 
 ### Building it yourself (Windows)
 
 ```powershell
 $env:RUSTFLAGS = "-C target-feature=+crt-static"
-cargo build --release -p phoenix-loader -p phoenix-inject
-.\target\release\phoenix-inject.exe   # beside phoenix.dll, which it installs
+cargo build --release -p phoenix-loader
+$env:RUBYCORD_LOADER_DLL = "$PWD\target\release\phoenix.dll"
+cargo build --release -p phoenix-inject
+$env:RUBYCORD_LAUNCHER_EXE = "$PWD\target\release\phoenix-inject.exe"
+cargo build --release -p rubycord-installer   # target\release\rubycord-installer.exe
 ```
-`.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with Ruby in one step (see AGENTS.md).
+`.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with RubyCord in one step (see AGENTS.md).
 
 ### Plugins and themes
 
-- Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → Ruby → Plugins.
-- There is no default theme. A theme is not CSS (Discord Phoenix has no page to style): it is a small `.json` file saying what to change, like `{ "square": true, "hide": ["composer.gift", "dm.nitro"] }`. In the Themes tab press **Import theme** and pick one. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`, turned on, and can be toggled there; adding, deleting or editing files in that folder shows up live. `hide` takes `dm.nitro`, `dm.quests`, `composer.stickers`, `composer.apps` and `composer.gift`; the Themes page says which of them this Discord build can do (the gift button, the sticker button, and Nitro and Quests in the DM list; the apps button is not found yet). `square` squares Ruby's own pages for now.
+- Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → RubyCord → Plugins.
+- There is no default theme. A theme is not CSS (Discord Phoenix has no page to style): it is a small `.json` file saying what to change, like `{ "square": true, "hide": ["composer.gift", "dm.nitro"] }`. In the Themes tab press **Import theme** and pick one. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\rubycord\themes`, turned on, and can be toggled there; adding, deleting or editing files in that folder shows up live. `hide` takes `dm.nitro`, `dm.quests`, `composer.stickers`, `composer.apps` and `composer.gift`; the Themes page says which of them this Discord build can do (the gift button, the sticker button, and Nitro and Quests in the DM list; the apps button is not found yet). `square` squares RubyCord's own pages for now.
 
 ### Other platforms
 
 - **Android / iOS**: `crates/patcher` patches and signs the APK or IPA (`nu scripts/phoenix.nu` on Linux).
-- **macOS**: `RUBY_SITE=<server> sh scripts/ruby-macos.sh`, against a server that hosts the loader. No CI build yet.
+- **macOS**: `RUBYCORD_SITE=<server> sh scripts/rubycord-macos.sh`, against a server that hosts the loader. No CI build yet.
 
-Ruby has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
+RubyCord has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
 
 ## Versions
 
-`YEAR.MAJOR.MINOR`, like `2026.1.0`: the year, then a number that goes up for a major update (and restarts the minor number at 0), then a number for minor updates, 0 to 999. It lives in `version` under `[workspace.package]` in `Cargo.toml` (Cargo wants no leading zeros, so it is `2026.1.0`, not `2026.1.00`). The release, the Windows exe's file properties and Settings → Ruby all show it.
+`YEAR.MAJOR.MINOR`, like `2026.1.0`: the year, then a number that goes up for a major update (and restarts the minor number at 0), then a number for minor updates, 0 to 999. It lives in `version` under `[workspace.package]` in `Cargo.toml` (Cargo wants no leading zeros, so it is `2026.1.0`, not `2026.1.00`). The release, the Windows exe's file properties and Settings → RubyCord all show it.
 
 ## How it works
 
@@ -85,7 +92,7 @@ The bundled plugins live in `plugins/*/src/index.ts`. `node web/tools/bundle-plu
 | `crates/runtime` | The QuickJS plugin runtime and `phoenix` API, shared across platforms. |
 | `crates/runtime-mobile` | Android and iOS side: UI-op bridge, Settings pages, and UI patches. |
 | `crates/runtime-desktop` | Desktop Phoenix side: GPUI hooks, HTTP transport hooks, settings, and tray. |
-| `crates/inject` | Windows launcher/installer (`ruby.exe`). |
+| `crates/inject` | Windows launcher/installer (`rubycord.exe`). |
 | `crates/hook`, `crates/sigs`, `crates/sigscan` | Native hooking, build-independent binary locators, and the `sigscan` CLI. |
 | `crates/ui-mobile`, `crates/wire` | Mobile (Android/iOS) UI-op and bridge frame codecs. |
 | `crates/ui-desktop` | Desktop host primitives (clipboard, URLs, notifications, dashboard). |

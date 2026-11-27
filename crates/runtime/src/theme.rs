@@ -1,4 +1,4 @@
-//! Ruby themes. Discord Phoenix draws with GPUI, not a DOM, so a theme is not CSS: it is a JSON
+//! RubyCord themes. Discord Phoenix draws with GPUI, not a DOM, so a theme is not CSS: it is a JSON
 //! file in `<home>/themes` that names what to change.
 //!
 //! ```json
@@ -144,7 +144,7 @@ fn watch() {
          return;
       };
       let spawned = thread::Builder::new()
-         .name("ruby-themes".to_owned())
+         .name("rubycord-themes".to_owned())
          .spawn(move || {
             let mut seen = fingerprint(&dir);
             loop {
@@ -268,7 +268,7 @@ pub fn import(file_name: &str, bytes: &[u8]) -> Result<String, String> {
       return Err("the file is over 1 MB".to_owned());
    }
    parse(bytes).map_err(|err| format!("not a theme: {err}"))?;
-   let dir = dir().ok_or("Ruby has not started")?;
+   let dir = dir().ok_or("RubyCord has not started")?;
    fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
    fs::write(dir.join(format!("{name}.json")), bytes).map_err(|err| err.to_string())?;
    reload();
@@ -303,7 +303,7 @@ mod tests {
 
    #[test]
    fn fingerprint_follows_the_folder() {
-      let dir = std::env::temp_dir().join(format!("ruby-themes-test-{}", std::process::id()));
+      let dir = std::env::temp_dir().join(format!("rubycord-themes-test-{}", std::process::id()));
       fs::create_dir_all(&dir).unwrap();
       let empty = fingerprint(&dir);
       fs::write(dir.join("a.json"), "{}").unwrap();

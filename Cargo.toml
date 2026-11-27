@@ -2,6 +2,7 @@
 members  = [
   "crates/hook",
   "crates/inject",
+  "crates/installer",
   "crates/loader",
   "crates/patcher",
   "crates/patcher-web",
@@ -21,7 +22,7 @@ resolver = "3"
 [workspace.package]
 edition = "2024"
 license = "EUPL-1.2"
-version = "2026.1.9"
+version = "2026.2.0"
 
 [workspace.dependencies]
 android_logger          = { default-features = false, version = "0.15" }

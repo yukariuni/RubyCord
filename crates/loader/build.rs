@@ -4,7 +4,7 @@ fn main() {
    winres::embed(
       winres::Kind::Dll,
       "phoenix.dll",
-      "Ruby runtime for Discord Phoenix",
+      "RubyCord runtime for Discord Phoenix",
       None,
    );
 }

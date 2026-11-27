@@ -1,12 +1,12 @@
-//! Injects a native GPUI **Ruby** tab directly into Desktop Phoenix's User
+//! Injects a native GPUI **RubyCord** tab directly into Desktop Phoenix's User
 //! Settings sidebar and renders native Mana GPUI settings controls when
 //! selected.
 //!
 //! All patches are build-independent anchor lookups run from [`crate::prepare`]
 //! inside `DllMain` before Discord initializes:
 //! 1. Relabel settings page `24` (`Other -> Phoenix`, right above `Log Out`) to
-//!    `Ruby` by replacing the unique 22-byte `.rdata` string
-//!    `PhoenixDESKTOP_PHOENIX` in-place with `Ruby   DESKTOP_RUBY_UI`; the string
+//!    `RubyCord` by replacing the unique 22-byte `.rdata` string
+//!    `PhoenixDESKTOP_PHOENIX` in-place with `Ruby   DESKTOP_RUBY_UI` (7 characters: RubyCord does not fit); the string
 //!    lengths live in the code that reads them, so the new text pads with spaces to match.
 //! 2. Unconditionally show page `24` in `is_page_visible` by tightening the
 //!    `cmp r8d, 0xf` range guard (`pages 9..=24`) to `0x0e` (`pages 9..=23`),
@@ -30,7 +30,7 @@ use phoenix_sigs::desktop;
 
 use crate::gpui::{self, RawAnyElement};
 
-const RUBY_PAGE: u8 = 24;
+const RUBYCORD_PAGE: u8 = 24;
 
 type SectionFn = unsafe extern "C" fn(
    sret: *mut RawAnyElement,
@@ -63,7 +63,7 @@ pub fn install(image: &Image<'static>) {
 }
 
 /// macOS Phoenix, arm64: the same sidebar entry, unhidden, whose page is
-/// drawn with Discord's own builders ([`gpui::locate`]), or opens Ruby's
+/// drawn with Discord's own builders ([`gpui::locate`]), or opens RubyCord's
 /// settings window when they don't decode. Each part is located before
 /// anything is written, so a build that moved one changes nothing.
 #[cfg(target_os = "macos")]
@@ -142,7 +142,7 @@ fn install_arm64(image: &Image<'static>) {
    match written {
       Ok(()) => {
          log::info!(
-            "desktop settings: page 24 is Ruby, shown by {} visibility checks, {}",
+            "desktop settings: page 24 is RubyCord, shown by {} visibility checks, {}",
             guards.len(),
             if native {
                "drawn natively"
@@ -175,7 +175,7 @@ fn patch_sidebar_label(image: &Image<'static>) {
       return;
    }
    match unsafe { image.write_code(label.id, NEW_ID) } {
-      Ok(()) => log::info!("desktop settings: relabeled page 24 to Ruby"),
+      Ok(()) => log::info!("desktop settings: relabeled page 24 to RubyCord"),
       Err(err) => log::warn!("desktop settings: relabel id failed: {err}"),
    }
 }
@@ -246,17 +246,17 @@ unsafe extern "C" fn section_detour(
       let page = unsafe { *host_state.cast::<u8>().add(offset) };
       let last = LAST_PAGE.swap(usize::from(page), Ordering::AcqRel);
       if !crate::X86_CODE
-         && page == RUBY_PAGE
+         && page == RUBYCORD_PAGE
          && last != usize::from(page)
          && gpui::layout().is_none()
       {
          // Opening spawns a browser, which must not run on GPUI's thread.
          let _ = std::thread::Builder::new()
-            .name("ruby-settings".to_owned())
+            .name("rubycord-settings".to_owned())
             .spawn(phoenix_ui_desktop::open_devtools);
       }
-      if page == RUBY_PAGE {
-         let rendered = std::panic::catch_unwind(|| gpui::render_ruby_page(sret)).unwrap_or(false);
+      if page == RUBYCORD_PAGE {
+         let rendered = std::panic::catch_unwind(|| gpui::render_rubycord_page(sret)).unwrap_or(false);
          if rendered {
             return sret;
          }

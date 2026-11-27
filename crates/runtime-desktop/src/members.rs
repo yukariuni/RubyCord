@@ -114,8 +114,8 @@ impl Decorations {
       self.worker.get_or_init(|| {
          let (tx, rx) = mpsc::channel::<u64>();
          let name = match self.place {
-            Place::Members => "ruby-members",
-            Place::Headers => "ruby-headers",
+            Place::Members => "rubycord-members",
+            Place::Headers => "rubycord-headers",
          };
          let _ = std::thread::Builder::new()
             .name(name.to_owned())

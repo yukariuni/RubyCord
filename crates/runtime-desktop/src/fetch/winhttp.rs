@@ -183,7 +183,7 @@ pub fn send(request: &Request) -> Result<Response, FetchError> {
    full_path.extend_from_slice(&extra_buf[..parts.extra_info_len as usize]);
    full_path.push(0);
 
-   let agent = wide("Ruby");
+   let agent = wide("RubyCord");
    // SAFETY: WinHTTP session lifecycle managed by RAII `Handle`.
    let session = Handle(unsafe {
       WinHttpOpen(

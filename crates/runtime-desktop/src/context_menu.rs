@@ -146,7 +146,7 @@ fn ensure_worker() -> &'static mpsc::Sender<PendingClick> {
    WORKER_TX.get_or_init(|| {
       let (tx, rx) = mpsc::channel::<PendingClick>();
       let _ = std::thread::Builder::new()
-         .name("ruby-msg-act".to_owned())
+         .name("rubycord-msg-act".to_owned())
          .spawn(move || {
             while let Ok(click) = rx.recv() {
                if let Some(engine) = phoenix_runtime::engine() {
@@ -490,7 +490,7 @@ fn append_plugin_actions(
          gpui::pinned_rc_u64(token)
       };
       let label_ss = SharedString::from_str(&action.label);
-      let id_str = gpui::intern_str(&format!("ruby-msg-action-{}", action.id));
+      let id_str = gpui::intern_str(&format!("rubycord-msg-action-{}", action.id));
 
       // A native `MenuItem::Action` with our `Rc<dyn Fn>` click handler, then
       // Discord's `MenuItemProps`, id, optional icon and optional danger color

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Ruby patches Phoenix, Discord's native Rust Android client, and runs TypeScript plugins
+RubyCord patches Phoenix, Discord's native Rust Android client, and runs TypeScript plugins
 inside it. Target build is 356.7 Alpha, versionCode 356207. "Phoenix" is Discord's client. The
 runtime, the crates and the plugin global are all named `phoenix`.
 
@@ -44,18 +44,20 @@ Read this file before changing code. Every fact here cost someone hours to learn
 | `crates/runtime/src/discord.rs` | `phoenix.discord`, Discord's API with Phoenix's own session. The platforms carry the requests. |
 | `crates/runtime/src/theme.rs` | Themes, not CSS: `<home>/themes/*.json` (`square`, `hide: [ids]`) merged into `Effects`, which the platform's applier turns into changes (`runtime-desktop/src/hide.rs::apply`: `Div::id` is hooked and a div whose id is listed is built with `display: none`; the gift button is patched in `composer.rs`). A watcher thread reloads on any change in the folder. |
 | `crates/runtime/src/update.rs` | Update checks and one-tap plugin updates. Off while `ASSETS` is empty. |
-| `crates/runtime/src/remote.rs` | The debug shell on `127.0.0.1:4242`, off by default on Android, switched on in Settings, Ruby, Debug. On desktop it starts when DevTools first opens, or at launch with `RUBY_DEVTOOLS` set, which `dev.ps1 -Desktop` does. The platforms add their own endpoints. |
+| `crates/runtime/src/remote.rs` | The debug shell on `127.0.0.1:4242`, off by default on Android, switched on in Settings, RubyCord, Debug. On desktop it starts when DevTools first opens, or at launch with `RUBYCORD_DEVTOOLS` set, which `dev.ps1 -Desktop` does. The platforms add their own endpoints. |
+| `crates/inject` | `phoenix-inject.exe`, the Windows launcher: starts Discord Phoenix with the loader (`phoenix.dll`, embedded by CI through `RUBYCORD_LOADER_DLL`), and installs itself: `--install` and `--uninstall [--quiet]` for the installer. |
+| `crates/installer` | `rubycord-installer.exe`, the egui window with Inject and Un-Inject. It embeds the launcher (`RUBYCORD_LAUNCHER_EXE`) and drives it. Windows only. |
 | `crates/runtime-mobile` | phoenix on Phoenix's Android and iOS clients, started by the loader there. iOS has no installer or staff hook, and uses Foundation HTTP and a bundled SQLite. |
 | `crates/runtime-mobile/src/bridge/` | The sinks every guest/host frame passes, returning `Action::{Pass, Drop, Replace}`. `jni.rs` patches the JNI table on `GuestHost.invoke`/`applyOps` and rebinds `nativeDispatch`. `ios.rs` swaps the dispatch slot in the guest's vtable and the call slot in the host callbacks' vtable. |
-| `crates/runtime-mobile/src/settings/` | The Ruby settings pages, built from UI ops. |
+| `crates/runtime-mobile/src/settings/` | The RubyCord settings pages, built from UI ops. |
 | `crates/runtime-mobile/src/patches/` | UI patch targets, slash commands, profile tabs, emoji picker. |
 | `crates/runtime-mobile/src/discord.rs` | Plugin requests to Discord through Phoenix's own `Networking` module. |
 | `crates/runtime-mobile/src/host.rs` | Phoenix's host call, event and field numbers, read at startup from the name table in the installed APK's dex, or the host's Swift name table on iOS. `host::send` and `host::ask` call host modules. |
 | `crates/runtime-mobile/src/picker.rs` | File picker, toasts, clipboard and links through Phoenix's host modules. |
 | `crates/runtime-mobile/src/install.rs`, `loader.rs` | The APK self-update, and Android's installer opened on it through Discord's `FileProvider`. |
-| `crates/runtime-desktop` | phoenix on Desktop Phoenix (`Discord.exe`, Linux `discord-phoenix`, macOS `Discord`): the access gate, the HTTP transport hooks, the Ruby pages in User Settings, message accessories and the tray. `os.rs` holds what differs per OS. On macOS, which is arm64, everything runs (see Host facts). |
+| `crates/runtime-desktop` | phoenix on Desktop Phoenix (`Discord.exe`, Linux `discord-phoenix`, macOS `Discord`): the access gate, the HTTP transport hooks, the RubyCord pages in User Settings, message accessories and the tray. `os.rs` holds what differs per OS. On macOS, which is arm64, everything runs (see Host facts). |
 | `crates/ui-mobile` | Typed codec for mobile (Android/iOS) Phoenix UI-op batches. `src/props.in` is Phoenix's prop table, `templates.json` holds captured layouts, `motion.rs` drives native springs, `mirror.rs` keeps a live copy of the view tree that host tests can drive. |
-| `crates/ui-desktop` | Desktop UI host primitives (clipboard, URLs, notifications, GPUI surface hooks), one file per OS. On Windows Ruby has no tray icon: `windows.rs` swaps Discord's `Shell_NotifyIconW` import so its tray icon shows the logo from `logo.rs` and Ruby's notifications ride on it, and `webview.rs` sets the window icons. |
+| `crates/ui-desktop` | Desktop UI host primitives (clipboard, URLs, notifications, GPUI surface hooks), one file per OS. On Windows RubyCord has no tray icon: `windows.rs` swaps Discord's `Shell_NotifyIconW` import so its tray icon shows the logo from `logo.rs` and RubyCord's notifications ride on it, and `webview.rs` sets the window icons. |
 | `crates/wire` | Tagged values and bridge frames (`HostCall`, `DispatchEvent`). |
 | `crates/hook` | Image scanner, `swap_words`, ShadowHook through `sunhook-sys` on Android ARM. |
 | `crates/sigs`, `crates/sigscan` | The gateway registry walk and handler ABI, and every other locator the runtime patches from (`desktop.rs`, `mobile.rs`, `macos.rs`). `sigscan` dumps a library's registry, runs `check` (every locator for that platform, exit 1 on a miss) and looks up strings, references and disassembly in `Discord.exe`. |
@@ -67,7 +69,7 @@ Read this file before changing code. Every fact here cost someone hours to learn
 | `web/` | `tools/bundle-plugins.ts` bundles the plugins into `web/plugins/*.js`; the Frida gadgets live in `web/plugins/frida-*`. No website or update server: `ASSETS` in `update.rs` is empty. |
 | `frida/` | Optional Frida gadget bootstrap, for debugging on x86. |
 | `scripts/*.nu` | `phoenix.nu` builds, patches and installs on a phone. |
-| `scripts/ruby-{linux,macos}.sh` | The Desktop installers, which need `RUBY_SITE` to fetch the loader. Each makes a launcher that fetches the loader before every start and leaves Discord's own files untouched. |
+| `scripts/rubycord-{linux,macos}.sh` | The Desktop installers, which need `RUBYCORD_SITE` to fetch the loader. Each makes a launcher that fetches the loader before every start and leaves Discord's own files untouched. |
 | `scripts/dev.ps1` | The Windows dev loop, described below. |
 
 ## Building
@@ -92,7 +94,7 @@ Read this file before changing code. Every fact here cost someone hours to learn
 - iOS. `.github/workflows/ios.yml` builds `libphoenix.dylib` for `aarch64-apple-ios` on macOS,
   since the SDK ships only with Xcode.
 - macOS. `cargo build --release -p phoenix-loader` builds `target/release/libphoenix.dylib` for
-  Desktop Phoenix. Install it with `RUBY_SITE=http://127.0.0.1:<port> sh scripts/ruby-macos.sh`
+  Desktop Phoenix. Install it with `RUBYCORD_SITE=http://127.0.0.1:<port> sh scripts/rubycord-macos.sh`
   against a local folder serving `version.json` and `plugins/libphoenix-macos-arm64.dylib`, or start
   the copy it makes by hand (below). `sigscan` builds natively on Apple silicon.
 - Plugins. `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`).
@@ -229,11 +231,11 @@ byte pattern says nothing about arm32.
 ### macOS Desktop
 
 - `Discord Phoenix.app` has the hardened runtime, so dyld ignores `DYLD_INSERT_LIBRARIES`.
-  `ruby-macos.sh` clones it (`cp -c`, free on APFS) into
-  `~/Library/Application Support/Ruby/Ruby.app`, renames it, sets `DYLD_INSERT_LIBRARIES` and
-  `RUBY` in its Info.plist `LSEnvironment`, and signs it ad hoc. Discord relaunches itself with a
+  `rubycord-macos.sh` clones it (`cp -c`, free on APFS) into
+  `~/Library/Application Support/RubyCord/RubyCord.app`, renames it, sets `DYLD_INSERT_LIBRARIES` and
+  `RUBYCORD` in its Info.plist `LSEnvironment`, and signs it ad hoc. Discord relaunches itself with a
   bare `open -n`, which would lose a launcher's `--env`. After an update the loader rewrites
-  Discord's relaunch script to open `$RUBY`, the launcher, which re-signs the newer copy. A
+  Discord's relaunch script to open `$RUBYCORD`, the launcher, which re-signs the newer copy. A
   second Discord hands off to a running one, so the launcher first quits any copy without
   `libphoenix` mapped.
 - Patching Discord Phoenix in place was rejected. Writing into the bundle needs App Management with
@@ -243,8 +245,8 @@ byte pattern says nothing about arm32.
 - Phoenix re-execs itself once with its malloc settings and `DISCORD_DESKTOP_MALLOC_REEXEC=1`
   unless `LSEnvironment` already set them. The loader starts only in the last image. With SIP off,
   dyld kills any arm64e child (`osascript`, `nohup`) that inherits an arm64 library.
-- Data lives in `~/Library/Application Support/libdiscord` (or `LIBDISCORD_DATA_DIR`), Ruby's home
-  in its `ruby/`. Tokens are in the login keychain, so a copy pointed at another data directory
+- Data lives in `~/Library/Application Support/libdiscord` (or `LIBDISCORD_DATA_DIR`), RubyCord's home
+  in its `rubycord/`. Tokens are in the login keychain, so a copy pointed at another data directory
   still logs in to the owner's accounts.
 - Logs go to the unified log: `/usr/bin/log stream --predicate 'eventMessage CONTAINS "phoenix:"'`.
   After killed launches, pass `--args -ApplePersistenceIgnoreState YES` or a "reopen windows?"

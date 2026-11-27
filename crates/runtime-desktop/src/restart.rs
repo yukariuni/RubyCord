@@ -2,7 +2,7 @@ use phoenix_hook::image::Image;
 use phoenix_sigs::desktop::{WINDOWS_RESTART_SCRIPT, windows_restart_script};
 
 /// GPUI's restart script, relaunching through the launcher that started this
-/// Discord so Ruby loads again. Without one it restarts Discord as GPUI
+/// Discord so RubyCord loads again. Without one it restarts Discord as GPUI
 /// would.
 const RESTART_SCRIPT: &str = r#"$oldPid = $env:ZED_RESTART_PID
 $exePath = $env:ZED_RESTART_EXECUTABLE
@@ -10,10 +10,10 @@ $arguments = $env:ZED_RESTART_ARGUMENTS
 foreach ($name in 'PID','EXECUTABLE','ARGUMENTS') {
     Remove-Item "Env:ZED_RESTART_$name" -ErrorAction SilentlyContinue
 }
-$launcher = $env:RUBY_RESTART_EXE
+$launcher = $env:RUBYCORD_RESTART_EXE
 if ($launcher -and (Test-Path -LiteralPath $launcher -PathType Leaf)) {
     $exePath = $launcher
-    $arguments = "$env:RUBY_RESTART_ARGS $arguments"
+    $arguments = "$env:RUBYCORD_RESTART_ARGS $arguments"
 }
 while (Get-Process -Id $oldPid -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 0.1

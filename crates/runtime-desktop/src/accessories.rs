@@ -136,7 +136,7 @@ fn ensure_worker() -> &'static mpsc::Sender<u64> {
    WORKER_TX.get_or_init(|| {
       let (tx, rx) = mpsc::channel::<u64>();
       let _ = std::thread::Builder::new()
-         .name("ruby-msg-acc".to_owned())
+         .name("rubycord-msg-acc".to_owned())
          .spawn(move || {
             while let Ok(id) = rx.recv() {
                // Coalesce burst requests for the same message ID.

@@ -17,19 +17,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build the loader, then the launcher with it embedded
+      - name: Build the loader, the launcher with it embedded, then the installer with that
         shell: pwsh
         env:
           RUSTFLAGS: -C target-feature=+crt-static
         run: |
           cargo build --locked --release -p phoenix-loader
-          $env:RUBY_LOADER_DLL = "$PWD\target\release\phoenix.dll"
+          $env:RUBYCORD_LOADER_DLL = "$PWD\target\release\phoenix.dll"
           cargo build --locked --release -p phoenix-inject
-          Copy-Item target\release\phoenix-inject.exe ruby_discord_client.exe
+          $env:RUBYCORD_LAUNCHER_EXE = "$PWD\target\release\phoenix-inject.exe"
+          cargo build --locked --release -p rubycord-installer
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: ruby_discord_client.exe
+          path: target/release/rubycord-installer.exe
           if-no-files-found: error
 
   # Ubuntu 22.04 links against an older glibc than Discord's AppImage needs, so the loader works anywhere Discord does.
@@ -40,12 +41,12 @@ jobs:
       - run: cargo build --locked --release -p phoenix-loader
       - name: "One file: the installer script with the loader appended"
         run: |
-          { cat scripts/ruby-linux.sh; echo __PAYLOAD__; cat target/release/libphoenix.so; } > ruby_discord_client-linux
-          chmod +x ruby_discord_client-linux
+          { cat scripts/rubycord-linux.sh; echo __PAYLOAD__; cat target/release/libphoenix.so; } > rubycord-installer-linux
+          chmod +x rubycord-installer-linux
       - uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: ruby_discord_client-linux
+          path: rubycord-installer-linux
           if-no-files-found: error
 
   # One rolling "latest" release, replaced on every push, so the download link never changes.
@@ -67,5 +68,5 @@ jobs:
           version=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n 1)
           gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
           gh release create latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Ruby $version" --notes "Ruby $version, built from $GITHUB_SHA" \
-            dist/ruby_discord_client.exe dist/ruby_discord_client-linux
+            --title "RubyCord $version" --notes "RubyCord $version, built from $GITHUB_SHA" \
+            dist/rubycord-installer.exe dist/rubycord-installer-linux

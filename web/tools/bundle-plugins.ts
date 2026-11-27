@@ -1,7 +1,7 @@
 // Bundles plugins/*/src/index.ts into web/plugins/<name>.js the way scripts/phoenix.nu does (esbuild IIFE,
 // es2023, the leading `// @` lines kept as a banner) and lists them in web/plugins/index.json for the site.
 // usage: node web/tools/bundle-plugins.ts   (esbuild on PATH, or ESBUILD=path/to/esbuild)
-// The bundles are not committed: CI runs this for the `site` release that ruby-tools/site deploys.
+// The bundles are not committed: CI runs this for the `site` release that rubycord-tools/site deploys.
 // It also writes web/version.json, what the site ships, for the runtime's update check (crates/runtime/src/update.rs):
 // the loader's baked version and each plugin bundle's CRC-32.
 // The native artifacts next to them come from `nu scripts/site.nu web`, which CI also runs:

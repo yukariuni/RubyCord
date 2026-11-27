@@ -300,7 +300,7 @@ impl Default for UiState {
    }
 }
 
-/// Whether an enabled theme squares the corners, set at the top of each Ruby page render for
+/// Whether an enabled theme squares the corners, set at the top of each RubyCord page render for
 /// `card`.
 static SQUARE: AtomicBool = AtomicBool::new(false);
 
@@ -494,12 +494,12 @@ unsafe extern "C" fn button_callback(
                };
                match phoenix_runtime::install_file(&file_name, bytes) {
                   Ok(installed) => {
-                     log::info!("ruby settings: {installed} from {file_name}");
+                     log::info!("rubycord settings: {installed} from {file_name}");
                      phoenix_ui_desktop::toast(&installed.to_string());
                      crate::modal::force_redraw();
                   },
                   Err(err) => {
-                     log::warn!("ruby settings: install file {file_name}: {err}");
+                     log::warn!("rubycord settings: install file {file_name}: {err}");
                      phoenix_ui_desktop::toast(&format!("Install failed: {err}"));
                   },
                }
@@ -507,18 +507,18 @@ unsafe extern "C" fn button_callback(
          },
          Action::UninstallPlugin(name) => {
             if let Err(err) = phoenix_runtime::uninstall(&name) {
-               log::warn!("ruby settings: uninstall {name}: {err}");
+               log::warn!("rubycord settings: uninstall {name}: {err}");
             }
          },
          Action::PressButton { plugin, key } => phoenix_runtime::press(&plugin, &key),
          Action::InstallCatalog(name) => {
             std::thread::spawn(move || match update::install_listed(&name) {
                Ok(installed) => {
-                  log::info!("ruby settings: {installed}");
+                  log::info!("rubycord settings: {installed}");
                   phoenix_ui_desktop::toast(&installed.to_string());
                },
                Err(err) => {
-                  log::warn!("ruby settings: install {name}: {err}");
+                  log::warn!("rubycord settings: install {name}: {err}");
                   phoenix_ui_desktop::toast(&format!("Install failed: {err}"));
                },
             });
@@ -1452,7 +1452,7 @@ pub fn append_pieces(div: *mut c_void, pieces: &[Piece], lead: f32) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Ruby Categorized Native GPUI Settings Page
+// RubyCord Categorized Native GPUI Settings Page
 // ---------------------------------------------------------------------------
 
 const DESKTOP_FULL: &[&str] = &[
@@ -1520,8 +1520,8 @@ impl DesktopCompat {
    }
 }
 
-/// Renders the categorized native Ruby Settings page into `sret`.
-pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
+/// Renders the categorized native RubyCord Settings page into `sret`.
+pub fn render_rubycord_page(sret: *mut RawAnyElement) -> bool {
    let Some(sym) = SYMBOLS.get() else {
       return false;
    };
@@ -1561,8 +1561,8 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
       plugins.len(),
       phoenix_ui_desktop::DEVTOOLS_SHORTCUT,
    );
-   root = b.push_div(root, b.text_block("Ruby", &summary));
-   if let Some(label) = b.text_line("RUBY SETTINGS", ACCESSORY_MUTED, 12.0) {
+   root = b.push_div(root, b.text_block("RubyCord", &summary));
+   if let Some(label) = b.text_line("RUBYCORD SETTINGS", ACCESSORY_MUTED, 12.0) {
       root = b.push_div(root, label);
    }
 
@@ -1576,7 +1576,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
    let mut tab_bar = b.h_row(8.0, false);
    tab_bar = b.push_button(
       tab_bar,
-      "ruby-tab-plugins",
+      "rubycord-tab-plugins",
       &format!("Plugins ({})", plugins.len()),
       variant_for(Tab::Plugins),
       BtnSize::Small,
@@ -1584,7 +1584,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
    );
    tab_bar = b.push_button(
       tab_bar,
-      "ruby-tab-themes",
+      "rubycord-tab-themes",
       &format!("Themes ({})", themes.len()),
       variant_for(Tab::Themes),
       BtnSize::Small,
@@ -1592,7 +1592,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
    );
    tab_bar = b.push_button(
       tab_bar,
-      "ruby-tab-catalog",
+      "rubycord-tab-catalog",
       "Plugin Catalog",
       variant_for(Tab::Catalog),
       BtnSize::Small,
@@ -1600,7 +1600,7 @@ pub fn render_ruby_page(sret: *mut RawAnyElement) -> bool {
    );
    tab_bar = b.push_button(
       tab_bar,
-      "ruby-tab-general",
+      "rubycord-tab-general",
       "General & Updates",
       variant_for(Tab::General),
       BtnSize::Small,
@@ -1665,7 +1665,7 @@ fn render_plugins_tab(
    let mut left_pills = b.h_row(6.0, false);
    left_pills = b.push_button(
       left_pills,
-      "ruby-filter-all",
+      "rubycord-filter-all",
       &format!("All ({})", plugins.len()),
       filt_var(PluginFilter::All),
       BtnSize::Small,
@@ -1673,7 +1673,7 @@ fn render_plugins_tab(
    );
    left_pills = b.push_button(
       left_pills,
-      "ruby-filter-enabled",
+      "rubycord-filter-enabled",
       &format!("Enabled ({enabled_count})"),
       filt_var(PluginFilter::Enabled),
       BtnSize::Small,
@@ -1681,7 +1681,7 @@ fn render_plugins_tab(
    );
    left_pills = b.push_button(
       left_pills,
-      "ruby-filter-disabled",
+      "rubycord-filter-disabled",
       &format!("Disabled ({disabled_count})"),
       filt_var(PluginFilter::Disabled),
       BtnSize::Small,
@@ -1691,7 +1691,7 @@ fn render_plugins_tab(
    let mut right_actions = b.h_row(6.0, false);
    right_actions = b.push_button(
       right_actions,
-      "ruby-toolbar-install-url",
+      "rubycord-toolbar-install-url",
       "+ URL",
       BtnVariant::Primary,
       BtnSize::Small,
@@ -1699,7 +1699,7 @@ fn render_plugins_tab(
    );
    right_actions = b.push_button(
       right_actions,
-      "ruby-toolbar-install-file",
+      "rubycord-toolbar-install-file",
       "+ File...",
       BtnVariant::Secondary,
       BtnSize::Small,
@@ -1707,7 +1707,7 @@ fn render_plugins_tab(
    );
    right_actions = b.push_button(
       right_actions,
-      "ruby-toolbar-reload-all",
+      "rubycord-toolbar-reload-all",
       "Reload All",
       BtnVariant::Secondary,
       BtnSize::Small,
@@ -1782,7 +1782,7 @@ fn render_plugins_tab(
       card = b.push_div(
          card,
          b.switch_row(
-            &format!("ruby-plugin-{}", plugin.name),
+            &format!("rubycord-plugin-{}", plugin.name),
             &title,
             (!desc.is_empty()).then_some(desc.as_str()),
             plugin.enabled,
@@ -1800,7 +1800,7 @@ fn render_plugins_tab(
          };
          buttons = b.push_button(
             buttons,
-            &format!("ruby-expand-{}", plugin.name),
+            &format!("rubycord-expand-{}", plugin.name),
             &lbl,
             if is_open {
                BtnVariant::Primary
@@ -1813,7 +1813,7 @@ fn render_plugins_tab(
       }
       buttons = b.push_button(
          buttons,
-         &format!("ruby-edit-{}", plugin.name),
+         &format!("rubycord-edit-{}", plugin.name),
          "Edit Code",
          BtnVariant::Secondary,
          BtnSize::Small,
@@ -1822,7 +1822,7 @@ fn render_plugins_tab(
       if plugin.enabled && plugin.installed {
          buttons = b.push_button(
             buttons,
-            &format!("ruby-reload-{}", plugin.name),
+            &format!("rubycord-reload-{}", plugin.name),
             "Reload",
             BtnVariant::Secondary,
             BtnSize::Small,
@@ -1832,7 +1832,7 @@ fn render_plugins_tab(
       if !plugin.enabled && plugin.installed {
          buttons = b.push_button(
             buttons,
-            &format!("ruby-remove-{}", plugin.name),
+            &format!("rubycord-remove-{}", plugin.name),
             "Remove",
             BtnVariant::Critical,
             BtnSize::Small,
@@ -1853,7 +1853,7 @@ fn render_plugins_tab(
          card = b.push_div(card, b.divider());
          let mut drawer = b.card(10.0, 12.0, 6.0, 0.14);
          for setting in &plugin.settings {
-            let sid = format!("ruby-set-{}-{}", plugin.name, setting.key);
+            let sid = format!("rubycord-set-{}-{}", plugin.name, setting.key);
             let sdesc = setting.description.as_deref().unwrap_or("");
             // A text, number or secret setting: its value, and Edit for an
             // input.
@@ -2029,7 +2029,7 @@ fn render_catalog_group(
    section = b.push_div(
       section,
       b.action_row(
-         &format!("ruby-cat-group-{group_id}"),
+         &format!("rubycord-cat-group-{group_id}"),
          title,
          subtitle,
          &btn_lbl,
@@ -2052,7 +2052,7 @@ fn render_catalog_group(
          row_card = b.push_div(
             row_card,
             b.action_row(
-               &format!("ruby-cat-{}", item.name),
+               &format!("rubycord-cat-{}", item.name),
                &item.name,
                &sub,
                if is_installed { "Reinstall" } else { "Install" },
@@ -2092,7 +2092,7 @@ fn render_catalog_tab(
    root = b.push_div(
       root,
       b.action_row(
-         "ruby-catalog-refresh",
+         "rubycord-catalog-refresh",
          "Official Plugin Catalog",
          "Install plugins from a configured update server.",
          "Refresh",
@@ -2126,7 +2126,7 @@ fn render_catalog_tab(
          box_div = b.push_div(
             box_div,
             b.action_row(
-               "ruby-catalog-retry",
+               "rubycord-catalog-retry",
                "Could not reach catalog",
                &err,
                "Retry",
@@ -2198,7 +2198,7 @@ fn theme_summary(theme: &theme::Listed) -> String {
    }
    let mut parts = Vec::new();
    if theme.square {
-      parts.push("square corners (Ruby's pages only for now)".to_owned());
+      parts.push("square corners (RubyCord's pages only for now)".to_owned());
    }
    for id in &theme.hide {
       let known = theme::HIDES.iter().any(|(known, _)| known == id);
@@ -2224,7 +2224,7 @@ fn render_themes_tab(b: &Builder, mut root: RawDiv, themes: &[theme::Listed]) ->
    root = b.push_div(
       root,
       b.action_row(
-         "ruby-themes-import",
+         "rubycord-themes-import",
          "Import a theme",
          &format!(
             "Pick a .json theme, like {{\"square\": true, \"hide\": [\"composer.gift\"]}}. \"hide\" takes: {ids}."
@@ -2238,7 +2238,7 @@ fn render_themes_tab(b: &Builder, mut root: RawDiv, themes: &[theme::Listed]) ->
    root = b.push_div(
       root,
       b.action_row(
-         "ruby-themes-refresh",
+         "rubycord-themes-refresh",
          "Refresh themes",
          "The list follows the themes folder by itself: files you add, delete or edit show up here within a second.",
          "Refresh",
@@ -2260,7 +2260,7 @@ fn render_themes_tab(b: &Builder, mut root: RawDiv, themes: &[theme::Listed]) ->
       card = b.push_div(
          card,
          b.switch_row(
-            &format!("ruby-theme-{}", theme.name),
+            &format!("rubycord-theme-{}", theme.name),
             &theme.name,
             Some(&theme_summary(theme)),
             theme.enabled,
@@ -2277,7 +2277,7 @@ fn render_general_tab(b: &Builder, mut root: RawDiv) -> RawDiv {
    dev_card = b.push_div(
       dev_card,
       b.switch_row(
-         "ruby-staff-unlock",
+         "rubycord-staff-unlock",
          "Staff Unlock",
          Some("Unlock Discord staff-only settings, experiments, and internal developer menus."),
          phoenix_runtime::staff_enabled(),
@@ -2288,7 +2288,7 @@ fn render_general_tab(b: &Builder, mut root: RawDiv) -> RawDiv {
    dev_card = b.push_div(
       dev_card,
       b.action_row(
-         "ruby-open-devtools",
+         "rubycord-open-devtools",
          "Runtime Console & DevTools",
          &format!(
             "Evaluate JavaScript in QuickJS and view live runtime logs ({}).",
@@ -2304,7 +2304,7 @@ fn render_general_tab(b: &Builder, mut root: RawDiv) -> RawDiv {
    dev_card = b.push_div(
       dev_card,
       b.action_row(
-         "ruby-reload-all",
+         "rubycord-reload-all",
          "Reload All Plugins",
          "Re-evaluate every currently enabled plugin without restarting Discord.",
          "Reload All",
@@ -2322,8 +2322,8 @@ fn render_general_tab(b: &Builder, mut root: RawDiv) -> RawDiv {
    upd_card = b.push_div(
       upd_card,
       b.action_row(
-         "ruby-updates",
-         "Ruby Updates",
+         "rubycord-updates",
+         "RubyCord Updates",
          &upd_desc,
          upd_btn,
          upd_var,
@@ -2349,7 +2349,7 @@ fn updates_card_state() -> (String, &'static str, BtnVariant, Action) {
          let desc = match &found.loader {
             Some(version) => {
                format!(
-                  "Plugin updates ready: {} · Ruby {version} available (restart to update)",
+                  "Plugin updates ready: {} · RubyCord {version} available (restart to update)",
                   found.plugins.join(", ")
                )
             },
@@ -2364,7 +2364,7 @@ fn updates_card_state() -> (String, &'static str, BtnVariant, Action) {
       }
       if let Some(version) = found.loader {
          return (
-            format!("Ruby {version} is available — restart Ruby to update."),
+            format!("RubyCord {version} is available — restart RubyCord to update."),
             "Check for Updates",
             BtnVariant::Secondary,
             Action::CheckUpdates,
@@ -2372,7 +2372,7 @@ fn updates_card_state() -> (String, &'static str, BtnVariant, Action) {
       }
    }
    (
-      status.unwrap_or_else(|| format!("Ruby {} is up to date.", update::VERSION)),
+      status.unwrap_or_else(|| format!("RubyCord {} is up to date.", update::VERSION)),
       "Check for Updates",
       BtnVariant::Secondary,
       Action::CheckUpdates,

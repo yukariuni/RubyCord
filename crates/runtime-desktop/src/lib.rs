@@ -1,5 +1,5 @@
 //! phoenix on Desktop Phoenix: the access gate, the HTTP transport hooks, the
-//! Ruby pages in User Settings, message accessories, member list
+//! RubyCord pages in User Settings, message accessories, member list
 //! decorations and the tray.
 
 #![cfg(any(
@@ -314,9 +314,9 @@ impl Platform for Desktop {
       phoenix_runtime::theme::start();
       // Any local process could reach the shell's `/eval` and the session, so
       // it only listens once DevTools is opened, and only for holders of this
-      // start's token. `RUBY_DEVTOOLS` starts it at launch, for `dev.ps1`.
+      // start's token. `RUBYCORD_DEVTOOLS` starts it at launch, for `dev.ps1`.
       remote::require_token(&state.plugins_dir().with_file_name("debug-shell-token"));
-      if std::env::var_os("RUBY_DEVTOOLS").is_some() {
+      if std::env::var_os("RUBYCORD_DEVTOOLS").is_some() {
          start_shell();
       }
       phoenix_ui_desktop::start_tray(phoenix_ui_desktop::TrayConfig {
@@ -326,11 +326,11 @@ impl Platform for Desktop {
          on_check_updates: Some(Arc::new(phoenix_runtime::update::check_now)),
       });
       phoenix_ui_desktop::notify(
-         "Ruby ready",
+         "RubyCord ready",
          Some(if X86_CODE {
-            "Open User Settings -> Ruby, or press Ctrl+Shift+I for DevTools"
+            "Open User Settings -> RubyCord, or press Ctrl+Shift+I for DevTools"
          } else {
-            "Ruby's settings are in its menu bar item"
+            "RubyCord's settings are in its menu bar item"
          }),
       );
       phoenix_runtime::update::check();
@@ -349,17 +349,17 @@ impl Platform for Desktop {
          Notice::UpdateAvailable(update) => {
             let mut parts = Vec::new();
             if let Some(version) = &update.loader {
-               parts.push(format!("Ruby {version} (restart to update)"));
+               parts.push(format!("RubyCord {version} (restart to update)"));
             }
             if !update.plugins.is_empty() {
                parts.push(format!("plugins: {}", update.plugins.join(", ")));
             }
             let body = if parts.is_empty() {
-               "Open Settings -> Ruby".to_owned()
+               "Open Settings -> RubyCord".to_owned()
             } else {
                parts.join(" · ")
             };
-            phoenix_ui_desktop::notify("Ruby update available", Some(&body));
+            phoenix_ui_desktop::notify("RubyCord update available", Some(&body));
          },
          Notice::PluginsUpdated(names) if !names.is_empty() => {
             let body = format!("Reloaded: {}", names.join(", "));
@@ -442,7 +442,7 @@ fn dialog(body: &[u8], sheet: bool) -> remote::Reply {
          },
       );
    }
-   let title = request.title.unwrap_or_else(|| "Ruby".to_owned());
+   let title = request.title.unwrap_or_else(|| "RubyCord".to_owned());
    let index = modal::ask(title, content, options, Duration::from_secs(120));
    remote::ok_json(&DialogAnswer { index })
 }

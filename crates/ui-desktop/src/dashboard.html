@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ruby DevTools</title>
+<title>RubyCord DevTools</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23f59e0b'/><circle cx='16' cy='16' r='5' fill='%23fff3b0'/></svg>" />
 <style>
   :root {
@@ -134,7 +134,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><i></i>Ruby DevTools</div>
+  <div class="brand"><i></i>RubyCord DevTools</div>
   <div class="status" id="status">Connected</div>
   <div class="spacer"></div>
   <div class="levels" role="group" aria-label="Log levels">
@@ -166,7 +166,7 @@ let at = 0;
 
 // The cookie the token set carries on, so it doesn't need to stay in the address bar.
 if (location.search) window.history.replaceState(null, '', location.pathname);
-try { past = JSON.parse(localStorage.getItem('ruby.past') || '[]'); } catch {}
+try { past = JSON.parse(localStorage.getItem('rubycord.past') || '[]'); } catch {}
 at = past.length;
 
 function setOnline(ok, why = '') {
@@ -275,7 +275,7 @@ async function run() {
   if (past[past.length - 1] !== code) past.push(code);
   past = past.slice(-100);
   at = past.length;
-  try { localStorage.setItem('ruby.past', JSON.stringify(past)); } catch {}
+  try { localStorage.setItem('rubycord.past', JSON.stringify(past)); } catch {}
   prompt.value = '';
   grow();
   // The result reaches the view through the log, like every other line.

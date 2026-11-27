@@ -179,12 +179,12 @@ static TOKEN_FILE: OnceLock<std::path::PathBuf> = OnceLock::new();
 /// The port `dev.ps1` and the token file are for. Another instance that starts
 /// while this one runs binds the next port and hands off to this one.
 const SHELL_PORT: u16 = 4242;
-const TOKEN_COOKIE: &str = "ruby_token";
+const TOKEN_COOKIE: &str = "rubycord_token";
 
 /// Makes every request carry a random per-start token, and writes it to
 /// `token_file` for local tools like `scripts/dev.ps1`.
 ///
-/// The token comes as `?token=`, an `X-Ruby-Token` header or the cookie
+/// The token comes as `?token=`, an `X-RubyCord-Token` header or the cookie
 /// `/ui?token=` sets. Platforms whose shell is always on call this: any local
 /// process or app could otherwise reach `/eval` and run JS with the session.
 pub fn require_token(token_file: &Path) {
@@ -498,7 +498,7 @@ fn read_request(stream: &TcpStream) -> std::io::Result<Request> {
             sec_fetch_site = Some(value.to_owned());
          } else if name.eq_ignore_ascii_case("cookie") {
             cookie = Some(value.to_owned());
-         } else if name.eq_ignore_ascii_case("x-ruby-token") {
+         } else if name.eq_ignore_ascii_case("x-rubycord-token") {
             token_header = Some(value.to_owned());
          }
       }
@@ -1008,7 +1008,7 @@ mod tests {
          (true, true)
       );
       assert_eq!(
-         token_given(&request("", Some("a=b; ruby_token=abc123"), None), token),
+         token_given(&request("", Some("a=b; rubycord_token=abc123"), None), token),
          (true, false)
       );
       assert_eq!(
@@ -1016,7 +1016,7 @@ mod tests {
          (true, false)
       );
       assert!(!token_given(&request("token=abc12", None, None), token).0);
-      assert!(!token_given(&request("", Some("ruby_tokenx=abc123"), None), token).0);
+      assert!(!token_given(&request("", Some("rubycord_tokenx=abc123"), None), token).0);
       assert!(!token_given(&request("", None, None), token).0);
       assert_eq!(random_token().len(), 32);
       assert_ne!(random_token(), random_token());

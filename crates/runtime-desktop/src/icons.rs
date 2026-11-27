@@ -2,7 +2,7 @@
 //!
 //! GPUI's `svg().path(path)` loads its bytes through Discord's asset loader
 //! and fills the shape with the element's text color. Plugins hand the runtime
-//! SVG source, which [`register`] files under a `ruby/icons/` path, and the
+//! SVG source, which [`register`] files under a `rubycord/icons/` path, and the
 //! hooked loader answers those paths with the source, in a `Vec` from Discord's
 //! own allocator, which Discord frees when it is done.
 
@@ -27,7 +27,7 @@ struct Loaded {
 
 type AssetLoadFn = unsafe extern "C" fn(*mut Loaded, *const u8, usize) -> *mut Loaded;
 
-const PREFIX: &str = "ruby/icons/";
+const PREFIX: &str = "rubycord/icons/";
 /// Plenty for an icon; anything larger is not drawn.
 const MAX_SVG: usize = 64 * 1024;
 const MAX_ICONS: usize = 1024;

@@ -33,11 +33,11 @@ pub fn embed(kind: Kind, file_name: &str, description: &str, manifest: Option<&s
       kind,
       parts,
       &[
-         ("CompanyName", "Ruby"),
+         ("CompanyName", "RubyCord"),
          ("FileDescription", description),
          ("FileVersion", &version),
          ("OriginalFilename", file_name),
-         ("ProductName", "Ruby"),
+         ("ProductName", "RubyCord"),
          ("ProductVersion", &version),
       ],
    );

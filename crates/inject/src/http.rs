@@ -158,7 +158,7 @@ fn get(
    let target = Target::parse(url)?;
    let ms = |time: Duration| i32::try_from(time.as_millis()).unwrap_or(i32::MAX);
 
-   let agent = wide("Ruby");
+   let agent = wide("RubyCord");
    // SAFETY: `agent` is NUL-terminated.
    let session = Handle::new(
       unsafe {

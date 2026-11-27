@@ -243,7 +243,7 @@ unsafe fn build(id: u64, title: &str, sections: Vec<PanelSection>, on_close: Opt
                      sel(c"buttonWithTitle:target:action:"),
                      ns_string(&button.label),
                      target,
-                     sel(c"rubyPanel:"),
+                     sel(c"rubycordPanel:"),
                   );
                   if view.is_null() {
                      continue;
@@ -352,7 +352,7 @@ extern "C" fn panel_clicked(_this: Id, _selector: Sel, sender: Id) {
       .get(&tag)
       .cloned();
    if let Some(action) = action {
-      spawn("ruby-panel", move || action());
+      spawn("rubycord-panel", move || action());
    }
 }
 
@@ -381,7 +381,7 @@ extern "C" fn window_will_close(_this: Id, _selector: Sel, notification: Id) {
    // SAFETY: the window `build` allocated, which nothing else releases.
    unsafe { send(window as Id, sel(c"autorelease")) };
    if let Some(on_close) = closed.on_close {
-      spawn("ruby-panel", move || on_close());
+      spawn("rubycord-panel", move || on_close());
    }
 }
 
@@ -392,9 +392,9 @@ fn target() -> Id {
       // `window_will_close` of type `v@:@`.
       unsafe {
          target_object(
-            c"RubyPanelTarget",
+            c"RubyCordPanelTarget",
             &[
-               (c"rubyPanel:", panel_clicked as *const c_void),
+               (c"rubycordPanel:", panel_clicked as *const c_void),
                (c"windowWillClose:", window_will_close as *const c_void),
             ],
          )

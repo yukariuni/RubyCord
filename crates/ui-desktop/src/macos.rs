@@ -22,7 +22,7 @@ fn spawn_reaped(command: &mut Command) -> Result<(), Error> {
       message: format!("{}: {err}", command.get_program().display()),
    })?;
    let _ = thread::Builder::new()
-      .name("ruby-reap".to_owned())
+      .name("rubycord-reap".to_owned())
       .spawn(move || child.wait());
    Ok(())
 }
@@ -59,7 +59,7 @@ impl DesktopHost for Host {
          .args([
             "-e".to_owned(),
             format!(
-               "POSIX path of (choose file with prompt \"Import Ruby file (.{ext})\" of type \
+               "POSIX path of (choose file with prompt \"Import RubyCord file (.{ext})\" of type \
                 {{\"{ext}\"}})"
             ),
          ])
@@ -246,7 +246,7 @@ extern "C" fn tray_clicked(_this: Id, _selector: Sel, sender: Id) {
    else {
       return;
    };
-   spawn("ruby-tray", move || action.run());
+   spawn("rubycord-tray", move || action.run());
 }
 
 /// Runs `work` on a thread of its own, since `AppKit`'s may not block.
@@ -289,8 +289,8 @@ fn start_status_item() {
    unsafe {
       let bar = send(class(c"NSStatusBar"), sel(c"systemStatusBar"));
       let target = target_object(
-         c"RubyTrayTarget",
-         &[(c"rubyTray:", tray_clicked as *const c_void)],
+         c"RubyCordTrayTarget",
+         &[(c"rubycordTray:", tray_clicked as *const c_void)],
       );
       if bar.is_null() || target.is_null() {
          log::info!("tray: AppKit is not available");
@@ -305,19 +305,19 @@ fn start_status_item() {
          class(c"NSImage"),
          sel(c"imageWithSystemSymbolName:accessibilityDescription:"),
          ns_string("bird"),
-         ns_string("Ruby"),
+         ns_string("RubyCord"),
       );
       if image.is_null() {
-         send_id(button, sel(c"setTitle:"), ns_string("Ruby"));
+         send_id(button, sel(c"setTitle:"), ns_string("RubyCord"));
       } else {
          send_id(button, sel(c"setImage:"), image);
       }
-      send_id(button, sel(c"setToolTip:"), ns_string("Ruby"));
+      send_id(button, sel(c"setToolTip:"), ns_string("RubyCord"));
 
       let menu = send_id(
          send(class(c"NSMenu"), sel(c"alloc")),
          sel(c"initWithTitle:"),
-         ns_string("Ruby"),
+         ns_string("RubyCord"),
       );
       for (at, entry) in TrayAction::MENU.iter().enumerate() {
          let menu_item = entry.map_or_else(
@@ -327,7 +327,7 @@ fn start_status_item() {
                   send(class(c"NSMenuItem"), sel(c"alloc")),
                   sel(c"initWithTitle:action:keyEquivalent:"),
                   ns_string(action.label()),
-                  sel(c"rubyTray:"),
+                  sel(c"rubycordTray:"),
                   // An uppercase key adds Shift to the default Command, so
                   // the menu shows the monitor's Shift-Command-I.
                   ns_string(if matches!(action, TrayAction::OpenDevtools) {
@@ -347,7 +347,7 @@ fn start_status_item() {
    }
 }
 
-/// Ruby's shortcuts while Discord is focused: Command-Shift-I opens its
+/// RubyCord's shortcuts while Discord is focused: Command-Shift-I opens its
 /// `DevTools`, which Discord leaves free.
 const SHORTCUTS: [(usize, u16, fn()); 1] = [
    // `kVK_ANSI_I`.
@@ -398,7 +398,7 @@ extern "C" fn key_down(_block: *const Block, event: Id) -> Id {
    };
    log::info!("shortcuts: key {code:#x}");
    // Opening spawns a browser, which must not block the main thread.
-   spawn("ruby-shortcut", run);
+   spawn("rubycord-shortcut", run);
    ptr::null_mut()
 }
 

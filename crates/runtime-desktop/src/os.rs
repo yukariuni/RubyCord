@@ -355,16 +355,16 @@ mod macos {
 
    impl DesktopOs for Macos {
       /// Points Discord's relaunch after an update at the launcher in
-      /// `$RUBY`, set by the copy's Info.plist, since the updated bundle is
+      /// `$RUBYCORD`, set by the copy's Info.plist, since the updated bundle is
       /// signed by Discord again and ignores the loader.
       fn install(image: &Image<'static>) {
          const SCRIPT: &[u8] =
-            br#"while kill -0 $0 2>&-;do sleep .2;done;/usr/bin/open -n "${RUBY:-$1}";rm -rf "$2""#;
+            br#"while kill -0 $0 2>&-;do sleep .2;done;/usr/bin/open -n "${RUBYCORD:-$1}";rm -rf "$2""#;
 
          let at = match phoenix_sigs::macos::relaunch_script(image) {
             Ok(at) => at,
             Err(err) => {
-               log::warn!("relaunch: {err}, an update restarts without Ruby");
+               log::warn!("relaunch: {err}, an update restarts without RubyCord");
                return;
             },
          };
@@ -373,7 +373,7 @@ mod macos {
          // SAFETY: a string no thread reads while the loader's constructor
          // runs, replaced by one of the same length.
          match unsafe { image.write_code(at, &script) } {
-            Ok(()) => log::info!("relaunch: Discord's updater restarts through Ruby"),
+            Ok(()) => log::info!("relaunch: Discord's updater restarts through RubyCord"),
             Err(err) => log::warn!("relaunch: {err}"),
          }
       }

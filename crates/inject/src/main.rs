@@ -1,4 +1,4 @@
-//! `ruby.exe`, the Windows launcher, also `phoenix-inject [phoenix.dll] [--
+//! `rubycord.exe`, the Windows launcher, also `phoenix-inject [phoenix.dll] [--
 //! discord args]`.
 //!
 //! `Discord.exe` resolves its imports from System32 only (`DependentLoadFlags`
@@ -8,10 +8,10 @@
 //! code. Quit Discord first: a second instance hands off to the running one
 //! and exits.
 //!
-//! Without a DLL argument it installs itself to `%LOCALAPPDATA%\Ruby` with
+//! Without a DLL argument it installs itself to `%LOCALAPPDATA%\RubyCord` with
 //! Start Menu and Desktop shortcuts, and fetches the site's newest
 //! `phoenix.dll` there before each launch. Discord's own files stay untouched,
-//! so its updates never undo Ruby. `--uninstall` removes both.
+//! so its updates never undo RubyCord. `--uninstall` removes both.
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
@@ -117,15 +117,15 @@ mod windows {
       fn MessageBoxW(window: Handle, text: *const u16, caption: *const u16, kind: u32) -> i32;
    }
 
-   /// Where a server hosts `version.json` and the loaders, if `RUBY_SITE` names one. Ruby hosts
+   /// Where a server hosts `version.json` and the loaders, if `RUBYCORD_SITE` names one. RubyCord hosts
    /// none, so without it the launcher runs the `phoenix.dll` already installed. Anything but a
    /// localhost server must be https, since what it serves is loaded into Discord.
    fn site() -> misstep::Result<Option<String>> {
-      let Ok(site) = env::var("RUBY_SITE") else {
+      let Ok(site) = env::var("RUBYCORD_SITE") else {
          return Ok(None);
       };
       if !site_allowed(&site) {
-         misstep::bail!("RUBY_SITE must be https:// or a localhost server, not {site}");
+         misstep::bail!("RUBYCORD_SITE must be https:// or a localhost server, not {site}");
       }
       Ok(Some(site))
    }
@@ -148,7 +148,7 @@ mod windows {
          MessageBoxW(
             ptr::null_mut(),
             wide(text).as_ptr(),
-            wide("Ruby").as_ptr(),
+            wide("RubyCord").as_ptr(),
             0x10,
          )
       };
@@ -162,7 +162,7 @@ mod windows {
          MessageBoxW(
             ptr::null_mut(),
             wide(text).as_ptr(),
-            wide("Ruby").as_ptr(),
+            wide("RubyCord").as_ptr(),
             0x24,
          ) == 6
       }
@@ -297,10 +297,16 @@ mod windows {
 
    pub fn run() -> misstep::Result<()> {
       let local = PathBuf::from(env::var_os("LOCALAPPDATA").context("LOCALAPPDATA is unset")?);
-      let home = local.join("Ruby");
+      let home = local.join("RubyCord");
       let mut args = env::args_os().skip(1).peekable();
-      if args.peek().is_some_and(|arg| arg == "--uninstall") {
-         uninstall(&local, &home);
+      // For the installer, which has its own window: no message boxes, and the exit code says how
+      // it went.
+      if args.next_if(|arg| arg == "--install").is_some() {
+         std::process::exit(install_only(&local, &home));
+      }
+      if args.next_if(|arg| arg == "--uninstall").is_some() {
+         let quiet = args.next_if(|arg| arg == "--quiet").is_some();
+         uninstall(&local, &home, quiet);
          return Ok(());
       }
       let mut no_runtime = false;
@@ -314,7 +320,7 @@ mod windows {
       let exe = app.join("Discord.exe");
       if !exe.is_file() {
          misstep::bail!(
-            "Discord Phoenix is not installed at {}. Install it first, then open Ruby again.",
+            "Discord Phoenix is not installed at {}. Install it first, then open RubyCord again.",
             exe.display()
          );
       }
@@ -332,7 +338,7 @@ mod windows {
       let launcher = if explicit.is_some() {
          env::current_exe()?
       } else {
-         home.join("ruby.exe")
+         home.join("rubycord.exe")
       };
       let dll = match &explicit {
          Some(path) => PathBuf::from(path),
@@ -342,21 +348,21 @@ mod windows {
       args.next_if(|arg| arg == "--");
       let args: Vec<OsString> = args.collect();
 
-      // A second Discord hands off to the running one and exits, so Ruby
+      // A second Discord hands off to the running one and exits, so RubyCord
       // would never run in the Discord the user sees.
       let open = running(&exe);
       if !open.is_empty() {
          let dll_name = dll.file_name().unwrap_or_default();
-         let with_ruby = open.iter().any(|&(_, pid)| has_module(pid, dll_name));
+         let with_rubycord = open.iter().any(|&(_, pid)| has_module(pid, dll_name));
          let restart = if no_runtime {
             ask(
-               "Discord is already running.\n\nRestart it without the Ruby plugin runtime? A \
+               "Discord is already running.\n\nRestart it without the RubyCord plugin runtime? A \
                 call you are in will end.",
             )
          } else {
-            !with_ruby
+            !with_rubycord
                && ask(
-                  "Discord is already running without Ruby.\n\nRestart it with Ruby? A call \
+                  "Discord is already running without RubyCord.\n\nRestart it with RubyCord? A call \
                    you are in will end.",
                )
          };
@@ -376,7 +382,7 @@ mod windows {
          }
          if !restart {
             // Brings the running Discord forward, or leaves it as the user chose.
-            if with_ruby {
+            if with_rubycord {
                Command::new(&exe).args(&args).current_dir(&app).spawn()?;
             }
             return Ok(());
@@ -404,10 +410,10 @@ mod windows {
       // SAFETY: the launcher is single-threaded. Discord and its restart helper
       // inherit these settings with the rest of the environment.
       unsafe {
-         env::set_var("RUBY_RESTART_EXE", launcher);
-         env::set_var("RUBY_RESTART_ARGS", OsString::from_wide(&restart_args));
+         env::set_var("RUBYCORD_RESTART_EXE", launcher);
+         env::set_var("RUBYCORD_RESTART_ARGS", OsString::from_wide(&restart_args));
          if no_runtime {
-            env::set_var("RUBY_GATE_ONLY", "1");
+            env::set_var("RUBYCORD_GATE_ONLY", "1");
          }
       }
    }
@@ -508,10 +514,11 @@ mod windows {
 
    /// Copies this launcher into `home`, adds its shortcuts once, and brings
    /// `phoenix.dll` up to the site's version. A failed update keeps the DLL
-   /// already there, so Ruby still starts offline.
+   /// already there, so RubyCord still starts offline.
    fn install(local: &Path, home: &Path) -> misstep::Result<PathBuf> {
+      remove_legacy(local);
       fs::create_dir_all(home)?;
-      let launcher = home.join("ruby.exe");
+      let launcher = home.join("rubycord.exe");
       let me = env::current_exe()?;
       let copied = !same_file(&me, &launcher);
       if copied {
@@ -519,7 +526,7 @@ mod windows {
       }
       // The shortcuts' icon. A missing one only leaves them with Discord's.
       let _ = fs::write(
-         home.join("ruby.ico"),
+         home.join("rubycord.ico"),
          phoenix_ui_desktop::logo::ico(&[16, 32, 48, 64]),
       );
       let dll = home.join("phoenix.dll");
@@ -532,7 +539,7 @@ mod windows {
       }
       if !dll.is_file() {
          misstep::bail!(
-            "no phoenix.dll in {}: pass one as an argument or set RUBY_SITE",
+            "no phoenix.dll in {}: pass one as an argument or set RUBYCORD_SITE",
             home.display()
          );
       }
@@ -580,6 +587,37 @@ mod windows {
          return Ok(());
       }
       swap(dll, |path| fs::copy(&beside, path).map(drop))
+   }
+
+   /// `--install`: puts the launcher, the loader and the shortcuts in place without starting
+   /// Discord. Exits 0 when done, 2 without Discord Phoenix, and 1 otherwise, with the reason in
+   /// `last-error.txt` beside the launcher.
+   fn install_only(local: &Path, home: &Path) -> i32 {
+      if !local
+         .join("DiscordPhoenix")
+         .join("app")
+         .join("Discord.exe")
+         .is_file()
+      {
+         return 2;
+      }
+      let done = install(local, home)
+         .and_then(|_| crate::shortcuts::sync(local, &home.join("rubycord.exe"), false));
+      match done {
+         Ok(()) => 0,
+         Err(err) => {
+            let _ = fs::write(home.join("last-error.txt"), format!("{err:?}"));
+            1
+         },
+      }
+   }
+
+   /// The folder and shortcuts from when RubyCord was called Ruby.
+   fn remove_legacy(local: &Path) {
+      let old = local.join("Ruby");
+      if old.join("ruby.exe").is_file() {
+         let _ = fs::remove_dir_all(old);
+      }
    }
 
    fn same_file(a: &Path, b: &Path) -> bool {
@@ -635,7 +673,7 @@ mod windows {
          false
       };
       if let Err(install) = fs::rename(&fresh, dll) {
-         // A failed swap must not leave Ruby without a DLL: the one moved
+         // A failed swap must not leave RubyCord without a DLL: the one moved
          // aside goes back into place, and this launch carries on with it.
          let _ = fs::remove_file(&fresh);
          if replaced && fs::rename(&old, dll).is_ok() {
@@ -668,9 +706,13 @@ mod windows {
 
    /// Removes the shortcuts and `home`. Files a running Discord or launcher
    /// still holds stay until they exit, and the user is told so.
-   fn uninstall(local: &Path, home: &Path) {
-      let _ = crate::shortcuts::sync(local, &home.join("ruby.exe"), true);
-      match fs::remove_dir_all(home) {
+   fn uninstall(local: &Path, home: &Path, quiet: bool) {
+      let _ = crate::shortcuts::sync(local, &home.join("rubycord.exe"), true);
+      let removed = fs::remove_dir_all(home);
+      if quiet {
+         return;
+      }
+      match removed {
          Err(err) if err.kind() != io::ErrorKind::NotFound => {
             alert(&format!(
                "The shortcuts are removed, but {} could not be deleted ({err}). Quit Discord and \
@@ -678,7 +720,7 @@ mod windows {
                home.display()
             ));
          },
-         _ => alert("Ruby is uninstalled. Discord itself was not changed."),
+         _ => alert("RubyCord is uninstalled. Discord itself was not changed."),
       }
    }
 
@@ -711,7 +753,7 @@ mod windows {
       #[test]
       fn allows_https_or_localhost_sites() {
          for ok in [
-            "https://assets.ruby.tools",
+            "https://assets.rubycord.tools",
             "http://127.0.0.1:8765",
             "http://localhost",
             "http://localhost/x",
@@ -719,7 +761,7 @@ mod windows {
             assert!(super::site_allowed(ok), "{ok}");
          }
          for bad in [
-            "http://assets.ruby.tools",
+            "http://assets.rubycord.tools",
             "http://localhost.evil.com",
             "http://127.0.0.1.evil.com",
             "ftp://x",

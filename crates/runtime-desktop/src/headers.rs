@@ -142,7 +142,7 @@ fn resolver() -> &'static mpsc::Sender<u64> {
    RESOLVER.get_or_init(|| {
       let (tx, rx) = mpsc::channel::<u64>();
       let _ = std::thread::Builder::new()
-         .name("ruby-authors".to_owned())
+         .name("rubycord-authors".to_owned())
          .spawn(move || {
             while let Ok(message_id) = rx.recv() {
                let Some(author) = crate::js::ui::cached_author(message_id) else {

@@ -1,13 +1,14 @@
-//! The Ruby logo, a faceted red gem with an R cut into it, from the image the user supplied. Shared with the launcher, which writes
+//! The RubyCord logo, a faceted red gem with an R cut into it, from the image the user supplied. Shared with the launcher, which writes
 //! it as an `.ico` for its shortcuts, so this file depends on nothing.
 
 /// The logo's straight-alpha RGBA pixels at each size, made from the source image by
 /// `scripts/make-logo.py`.
-const BLOBS: [(usize, &[u8]); 4] = [
+const BLOBS: [(usize, &[u8]); 5] = [
    (16, include_bytes!("logo/16.rgba")),
    (32, include_bytes!("logo/32.rgba")),
    (48, include_bytes!("logo/48.rgba")),
    (64, include_bytes!("logo/64.rgba")),
+   (128, include_bytes!("logo/128.rgba")),
 ];
 
 /// The logo at `size` pixels square: `0xAARRGGBB` pixels, top row first. A size without a blob is
@@ -72,7 +73,7 @@ mod tests {
 
    #[test]
    fn has_a_solid_logo_on_a_clear_background() {
-      for size in [16, 32, 48, 64, 24] {
+      for size in [16, 32, 48, 64, 128, 24] {
          let image = pixels(size);
          assert_eq!(image.len(), size * size);
          assert_eq!(image[0] >> 24, 0, "{size}: the top left corner is clear");

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-SIZES = [16, 32, 48, 64]
+SIZES = [16, 32, 48, 64, 128]
 OUT = Path(__file__).resolve().parent.parent / "crates" / "ui-desktop" / "src" / "logo"
 
 

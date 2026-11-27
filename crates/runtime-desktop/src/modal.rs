@@ -1750,7 +1750,7 @@ fn build_page_body(msym: &ModalSymbols, spec: &PageModalSpec) -> Option<RawDiv> 
             for (btn_idx, b) in buttons.iter().enumerate() {
                row = push_modal_button(
                   row,
-                  &format!("ruby-modal-btn-{sec_idx}-{btn_idx}"),
+                  &format!("rubycord-modal-btn-{sec_idx}-{btn_idx}"),
                   &b.label,
                   if b.danger {
                      BtnVariant::Critical
@@ -1794,7 +1794,7 @@ fn build_page_body(msym: &ModalSymbols, spec: &PageModalSpec) -> Option<RawDiv> 
             }
             if let Some(code_box) = build_code_box(
                msym,
-               &format!("ruby-code-{sec_idx}"),
+               &format!("rubycord-code-{sec_idx}"),
                text,
                *monospace,
                *highlight,
@@ -1859,7 +1859,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
          let body = build_page_body(msym, &spec);
          let mut footer = Vec::new();
          if let Some(close_btn) = make_modal_button(
-            "ruby-modal-close",
+            "rubycord-modal-close",
             "Close",
             BtnVariant::Secondary,
             BtnSize::Medium,
@@ -1921,7 +1921,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
          }
          let mut footer = Vec::new();
          if let Some(btn) = make_modal_button(
-            "ruby-edit-cancel",
+            "rubycord-edit-cancel",
             "Cancel",
             BtnVariant::Secondary,
             BtnSize::Medium,
@@ -1930,7 +1930,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
             footer.push(btn);
          }
          if let Some(btn) = make_modal_button(
-            "ruby-edit-copy",
+            "rubycord-edit-copy",
             "Copy Source",
             BtnVariant::Secondary,
             BtnSize::Medium,
@@ -1939,7 +1939,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
             footer.push(btn);
          }
          if let Some(btn) = make_modal_button(
-            "ruby-edit-save",
+            "rubycord-edit-save",
             "Save & Reload",
             BtnVariant::Primary,
             BtnSize::Medium,
@@ -2021,7 +2021,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
          }
          let mut footer = Vec::new();
          if let Some(btn) = make_modal_button(
-            "ruby-url-cancel",
+            "rubycord-url-cancel",
             "Cancel",
             BtnVariant::Secondary,
             BtnSize::Medium,
@@ -2031,7 +2031,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
          }
          if !inst.busy
             && let Some(btn) = make_modal_button(
-               "ruby-url-install",
+               "rubycord-url-install",
                match inst.target {
                   FieldTarget::Install => "Install Plugin",
                   FieldTarget::Setting(_) => "Save",
@@ -2049,7 +2049,7 @@ fn build_overlay(window: *mut c_void, app: *mut c_void) -> Option<RawDiv> {
             FieldTarget::Prompt(prompt) => (prompt.title.clone(), None),
             FieldTarget::Install => (
                "Install Plugin from URL".to_owned(),
-               Some("Paste an https:// URL pointing to a Ruby .js plugin bundle.".to_owned()),
+               Some("Paste an https:// URL pointing to a RubyCord .js plugin bundle.".to_owned()),
             ),
          };
          (title, subtitle, 2, body, footer)

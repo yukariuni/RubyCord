@@ -236,7 +236,7 @@ pub fn send(request: &Request) -> Result<Response, FetchError> {
       // WinHTTP's timeouts are per stall, not per request; match that.
       set_long(CURLOPT_LOW_SPEED_LIMIT, 1),
       set_long(CURLOPT_LOW_SPEED_TIME, c_long::from(TIMEOUT_MS / 1000)),
-      set_ptr(CURLOPT_USERAGENT, c"Ruby".as_ptr().cast()),
+      set_ptr(CURLOPT_USERAGENT, c"RubyCord".as_ptr().cast()),
       set_ptr(CURLOPT_HTTPHEADER, headers.1.cast_const()),
       set_ptr(
          CURLOPT_WRITEFUNCTION,

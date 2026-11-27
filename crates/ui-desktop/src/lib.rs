@@ -129,7 +129,7 @@ impl TrayAction {
          Self::CopyUrl => {
             let url = (config.devtools_url)();
             if copy(&url).is_ok() {
-               Os::notify("Ruby", &format!("Copied {url}"));
+               Os::notify("RubyCord", &format!("Copied {url}"));
             }
          },
          Self::OpenPlugins => {
@@ -181,7 +181,7 @@ fn config() -> Option<&'static TrayConfig> {
    CONFIG.get()
 }
 
-/// Gives Discord's own tray icon the Ruby logo, where the OS has one. Call before Discord starts.
+/// Gives Discord's own tray icon the RubyCord logo, where the OS has one. Call before Discord starts.
 pub fn hook_tray() {
    Os::hook_tray();
 }
@@ -192,7 +192,7 @@ pub fn start_tray(config: TrayConfig) {
    Os::start_tray();
 }
 
-/// The `DevTools` shortcut as Ruby's pages name it: Command on macOS, where
+/// The `DevTools` shortcut as RubyCord's pages name it: Command on macOS, where
 /// Control-Shift-I would be out of place, Control elsewhere.
 pub const DEVTOOLS_SHORTCUT: &str = if cfg!(target_os = "macos") {
    "Cmd+Shift+I"
@@ -200,7 +200,7 @@ pub const DEVTOOLS_SHORTCUT: &str = if cfg!(target_os = "macos") {
    "Ctrl+Shift+I"
 };
 
-/// Opens the Ruby `DevTools` / Runtime Console in the default browser
+/// Opens the RubyCord `DevTools` / Runtime Console in the default browser
 /// ([`DEVTOOLS_SHORTCUT`] while Discord Phoenix is focused).
 pub fn open_devtools() {
    if let Some(config) = config() {
@@ -243,7 +243,7 @@ pub fn open_url(url: &str) -> Result<(), Error> {
 /// Shows a short desktop toast / notification message.
 pub fn toast(message: &str) {
    log::info!("[toast] {message}");
-   Os::notify("Ruby", message);
+   Os::notify("RubyCord", message);
 }
 
 /// Shows a titled desktop notification.
@@ -255,7 +255,7 @@ pub fn notify(title: &str, body: Option<&str>) {
       },
       _ => {
          log::info!("[notify] {title}");
-         Os::notify("Ruby", title);
+         Os::notify("RubyCord", title);
       },
    }
 }
@@ -282,7 +282,7 @@ mod tests {
 
    #[test]
    fn dashboard_html_is_embedded() {
-      assert!(DASHBOARD_HTML.contains("<title>Ruby"));
+      assert!(DASHBOARD_HTML.contains("<title>RubyCord"));
       assert!(DASHBOARD_HTML.contains("/eval"));
       assert!(DASHBOARD_HTML.contains("/logs"));
    }

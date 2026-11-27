@@ -1,7 +1,7 @@
 //! Lightweight Discord main-window subclass for Desktop Phoenix.
 //!
 //! Subclasses Discord's main GPUI `HWND` so pressing `Ctrl+Shift+I` while
-//! Discord Phoenix is focused opens the Ruby `DevTools` / Runtime Console
+//! Discord Phoenix is focused opens the RubyCord `DevTools` / Runtime Console
 //! without registering a global hotkey that would steal `Ctrl+Shift+I` from
 //! browsers or editors.
 
@@ -168,7 +168,7 @@ pub fn start_window_hook() {
       return;
    }
    let _ = thread::Builder::new()
-      .name("ruby-hwnd".to_owned())
+      .name("rubycord-hwnd".to_owned())
       .spawn(|| {
          // Keeps going: the window can be closed and opened again, and Discord can set its own
          // icon back.

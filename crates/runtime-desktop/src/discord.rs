@@ -1138,12 +1138,12 @@ mod tests {
 
    #[test]
    fn owned_bytes_clone_and_drop_roundtrip() {
-      let raw = make_owned_bytes(b"hello ruby".to_vec());
+      let raw = make_owned_bytes(b"hello rubycord".to_vec());
       assert_eq!(raw.len, 13);
       // SAFETY: testing our own vtable clone + double drop.
       unsafe {
          let cloned = ((*raw.vtable).clone)(&raw.data, raw.ptr, raw.len);
-         assert_eq!(read_bytes(&cloned), b"hello ruby");
+         assert_eq!(read_bytes(&cloned), b"hello rubycord");
          ((*raw.vtable).drop)(raw.data.load(Ordering::Relaxed), raw.ptr, raw.len);
          ((*cloned.vtable).drop)(cloned.data.load(Ordering::Relaxed), cloned.ptr, cloned.len);
       }

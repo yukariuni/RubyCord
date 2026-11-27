@@ -1,25 +1,36 @@
 #!/bin/sh
-# Installs Ruby for Desktop Phoenix on Linux: a launcher that preloads the
+# Installs RubyCord for Desktop Phoenix on Linux: a launcher that preloads the
 # loader into Discord, and a desktop entry for it. Discord's own files stay
-# untouched, so its updates never undo Ruby.
+# untouched, so its updates never undo RubyCord.
 #
 # CI publishes this script with libphoenix.so appended after the __PAYLOAD__ line, as the one
-# file people download (ruby_discord_client-linux):
-#   chmod +x ruby_discord_client-linux && ./ruby_discord_client-linux
-#   ./ruby_discord_client-linux /path/to/Discord.AppImage
-#   ./ruby_discord_client-linux --no-runtime
-#   ./ruby_discord_client-linux --uninstall
-# From a checkout, RUBY_LOADER=/path/to/libphoenix.so sh scripts/ruby-linux.sh does the same.
+# file people download (rubycord-installer-linux):
+#   chmod +x rubycord-installer-linux && ./rubycord-installer-linux
+#   ./rubycord-installer-linux /path/to/Discord.AppImage
+#   ./rubycord-installer-linux --no-runtime
+#   ./rubycord-installer-linux --uninstall
+# From a checkout, RUBYCORD_LOADER=/path/to/libphoenix.so sh scripts/rubycord-linux.sh does the same.
 set -eu
 
 data=${XDG_DATA_HOME:-$HOME/.local/share}
-home=$data/ruby
-entry=$data/applications/ruby.desktop
-gate_entry=$data/applications/ruby-gate-only.desktop
+home=$data/rubycord
+entry=$data/applications/rubycord.desktop
+gate_entry=$data/applications/rubycord-gate-only.desktop
+
+# Run from a terminal with no arguments: ask what to do.
+if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
+   printf 'RubyCord\n  1) Inject\n  2) Un-Inject\n  q) Quit\n> '
+   read -r choice
+   case $choice in
+      1) ;;
+      2) set -- --uninstall ;;
+      *) exit 0 ;;
+   esac
+fi
 
 if [ "${1:-}" = --uninstall ]; then
    rm -rf "$home" "$entry" "$gate_entry"
-   echo "Ruby is uninstalled. Discord itself was not changed."
+   echo "RubyCord is uninstalled. Discord itself was not changed."
    exit 0
 fi
 
@@ -33,7 +44,7 @@ done
 # need escaping for the rest.
 case $home in
    *[[:space:]:\"\$\`\\\']*)
-      echo "Ruby can't be installed under $home: set XDG_DATA_HOME to a path without spaces, colons or quotes." >&2
+      echo "RubyCord can't be installed under $home: set XDG_DATA_HOME to a path without spaces, colons or quotes." >&2
       exit 1
       ;;
 esac
@@ -71,27 +82,29 @@ echo "Using Discord Phoenix at $discord"
 # Single-quotes a value for the generated launcher.
 q() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
 
+# From when RubyCord was called Ruby.
+rm -rf "$data/ruby" "$data/applications/ruby.desktop" "$data/applications/ruby-gate-only.desktop"
 mkdir -p "$home" "$data/applications"
 # The launcher preloads the loader installed beside it.
-cat >"$home/ruby" <<EOF
+cat >"$home/rubycord" <<EOF
 #!/bin/sh
 home=$(q "$home")
 while [ "\${1:-}" = --no-runtime ] || [ "\${1:-}" = --gate-only ]; do
-   export RUBY_GATE_ONLY=1
+   export RUBYCORD_GATE_ONLY=1
    shift
 done
 # A second Discord hands off to the running one and exits, so one running
-# without Ruby is restarted with it.
+# without RubyCord is restarted with it.
 discord=$(q "$discord")
-pids= ruby=
+pids= rubycord=
 for p in /proc/[0-9]*; do
    if [ "\$(readlink "\$p/exe" 2>/dev/null)" = "\$discord" ] ||
       tr '\\0' '\\n' <"\$p/environ" 2>/dev/null | grep -qxF "APPIMAGE=\$discord"; then
       pids="\$pids \${p#/proc/}"
-      grep -q libphoenix "\$p/maps" 2>/dev/null && ruby=1
+      grep -q libphoenix "\$p/maps" 2>/dev/null && rubycord=1
    fi
 done
-if [ -n "\$pids" ] && [ -z "\$ruby" ]; then
+if [ -n "\$pids" ] && [ -z "\$rubycord" ]; then
    kill \$pids 2>/dev/null
    for _ in 1 2 3 4 5 6 7 8 9 10; do
       alive=
@@ -104,16 +117,16 @@ fi
    export LD_PRELOAD="\$home/libphoenix.so\${LD_PRELOAD:+:\$LD_PRELOAD}"
 exec "\$discord" "\$@"
 EOF
-chmod +x "$home/ruby"
+chmod +x "$home/rubycord"
 
 exec_args=
 [ -n "$no_runtime" ] && exec_args=" --no-runtime"
 cat >"$entry" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Ruby
-Comment=Discord with Ruby
-Exec="$home/ruby"$exec_args %U
+Name=RubyCord
+Comment=Discord with RubyCord
+Exec="$home/rubycord"$exec_args %U
 Icon=discord
 Terminal=false
 Categories=Network;InstantMessaging;
@@ -123,28 +136,28 @@ EOF
 cat >"$gate_entry" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Ruby (access gate only)
+Name=RubyCord (access gate only)
 Comment=Discord past the access gate, without plugins
-Exec="$home/ruby" --no-runtime %U
+Exec="$home/rubycord" --no-runtime %U
 Icon=discord
 Terminal=false
 Categories=Network;InstantMessaging;
 EOF
 command -v update-desktop-database >/dev/null && update-desktop-database "$data/applications" || true
 
-# The loader: appended to this file by CI, or named by RUBY_LOADER.
+# The loader: appended to this file by CI, or named by RUBYCORD_LOADER.
 rm -f "$home/libphoenix.so"
-if [ -n "${RUBY_LOADER:-}" ]; then
-   cp "$RUBY_LOADER" "$home/libphoenix.so"
+if [ -n "${RUBYCORD_LOADER:-}" ]; then
+   cp "$RUBYCORD_LOADER" "$home/libphoenix.so"
 else
    start=$(grep -a -n -m1 '^__PAYLOAD__$' "$0" | cut -d: -f1 || true)
    if [ -z "$start" ]; then
-      echo "This copy has no loader attached. Download ruby_discord_client-linux from the releases, or set RUBY_LOADER." >&2
+      echo "This copy has no loader attached. Download rubycord-installer-linux from the releases, or set RUBYCORD_LOADER." >&2
       exit 1
    fi
    tail -n +"$((start + 1))" "$0" >"$home/libphoenix.so"
 fi
 chmod +x "$home/libphoenix.so"
-echo "Ruby is installed. Open \"Ruby\" from your app menu to start Discord with it."
+echo "RubyCord is installed. Open \"RubyCord\" from your app menu to start Discord with it."
 echo "It runs Discord from $discord: if you move or replace that file, run this again."
 exit 0

@@ -212,7 +212,7 @@ fn debug_section() -> Tree {
 
 pub fn install_sections(status: Option<&(String, i64)>, plugins: &[PluginInfo]) -> Vec<Tree> {
    let mut sections = vec![
-      section("From Ruby", listed_rows(plugins)),
+      section("From RubyCord", listed_rows(plugins)),
       section("From a URL", vec![text_field(
          Field::Install,
          Some(ICON_PLUGIN),

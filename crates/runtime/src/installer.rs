@@ -193,7 +193,7 @@ pub fn gist(url: &str, id: &str, anchor: Option<&str>) -> Result<(String, String
          "Accept".to_owned(),
          "application/vnd.github+json".to_owned(),
       ),
-      ("User-Agent".to_owned(), "ruby".to_owned()),
+      ("User-Agent".to_owned(), "rubycord".to_owned()),
    ])?;
    let gist = serde_json::from_slice::<Gist>(&body).map_err(|_| bad_url(url))?;
    let mut scripts = gist
@@ -383,9 +383,9 @@ mod tests {
    #[test]
    fn keeps_other_links_as_they_are() {
       assert_eq!(
-         file("https://assets.ruby.tools/plugins/translate.js?v=2#top"),
+         file("https://assets.rubycord.tools/plugins/translate.js?v=2#top"),
          (
-            "https://assets.ruby.tools/plugins/translate.js?v=2".to_owned(),
+            "https://assets.rubycord.tools/plugins/translate.js?v=2".to_owned(),
             "translate".to_owned()
          )
       );
