@@ -1,15 +1,30 @@
 //! `phoenix.storage`, a JSON object per plugin on disk, and `phoenix.stores`,
 //! read-only SQL over Phoenix's cache.
 
-use std::{fs, io::ErrorKind, path::PathBuf};
+use std::{
+   fs,
+   io::ErrorKind,
+   path::PathBuf,
+};
 
-use rquickjs::{Ctx, Exception, Function, Object, Value, function::Rest};
+use rquickjs::{
+   Ctx,
+   Exception,
+   Function,
+   Object,
+   Value,
+   function::Rest,
+};
 
 use crate::{
    io_error,
    js::{
-      background::{Settlement, in_background},
-      state, throw,
+      background::{
+         Settlement,
+         in_background,
+      },
+      state,
+      throw,
    },
    store,
 };

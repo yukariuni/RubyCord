@@ -6,17 +6,30 @@
 //! a plugin's hook turns its event on.
 
 use std::{
-   path::{Path, PathBuf},
+   path::{
+      Path,
+      PathBuf,
+   },
    sync::{
-      Mutex, OnceLock,
-      atomic::{AtomicBool, Ordering},
+      Mutex,
+      OnceLock,
+      atomic::{
+         AtomicBool,
+         Ordering,
+      },
    },
 };
 
-use phoenix_hook::image::{BuildId, Image};
+use phoenix_hook::image::{
+   BuildId,
+   Image,
+};
 use phoenix_sigs::{
    LIBRARIES,
-   registry::{self, GatewayRegistry},
+   registry::{
+      self,
+      GatewayRegistry,
+   },
 };
 
 pub mod console;
@@ -32,7 +45,10 @@ pub mod remote;
 pub mod store;
 pub mod update;
 
-pub use platform::{Notice, Platform};
+pub use platform::{
+   Notice,
+   Platform,
+};
 
 #[derive(Debug, flub::Error)]
 pub enum Error {
@@ -44,7 +60,7 @@ pub enum Error {
    NotStarted,
    #[error("{path}: {source}")]
    Io {
-      path: PathBuf,
+      path:   PathBuf,
       #[source]
       source: std::io::Error,
    },
@@ -54,9 +70,9 @@ pub enum Error {
    Registry(#[from] registry::Error),
    #[error("{event}: the registry slot held {found:#x}, the walk read {expected:#x}")]
    SwapConflict {
-      event: String,
+      event:    String,
       expected: usize,
-      found: usize,
+      found:    usize,
    },
    #[error(transparent)]
    Hook(#[from] phoenix_hook::Error),
@@ -88,8 +104,8 @@ pub enum Error {
 
 pub struct State {
    pub image: Image<'static>,
-   pub home: PathBuf,
-   js: Mutex<js::Engine>,
+   pub home:  PathBuf,
+   js:        Mutex<js::Engine>,
 }
 
 static STATE: OnceLock<State> = OnceLock::new();
@@ -117,27 +133,27 @@ pub fn set_platform(platform: &'static dyn Platform) {
 
 /// A plugin bundle, an esbuild IIFE that receives the `phoenix` API.
 pub struct Plugin {
-   pub name: String,
+   pub name:   String,
    pub source: String,
 }
 
 /// A plugin as the settings page shows it.
 #[derive(Clone, Debug)]
 pub struct PluginInfo {
-   pub name: String,
-   pub enabled: bool,
-   pub error: Option<String>,
+   pub name:      String,
+   pub enabled:   bool,
+   pub error:     Option<String>,
    pub installed: bool,
-   pub header: Header,
-   pub settings: Vec<Setting>,
+   pub header:    Header,
+   pub settings:  Vec<Setting>,
 }
 
 /// The `// @key value` lines a bundle starts with.
 #[derive(Clone, Debug, Default)]
 pub struct Header {
    pub description: Option<String>,
-   pub version: Option<String>,
-   pub author: Option<String>,
+   pub version:     Option<String>,
+   pub author:      Option<String>,
    /// `// @enabled false`, for plugins that stay off until the user turns
    /// them on.
    pub default_off: bool,
@@ -177,12 +193,12 @@ impl From<&str> for Header {
 /// A plugin setting as the user currently has it.
 #[derive(Clone, Debug)]
 pub struct Setting {
-   pub key: String,
-   pub title: String,
+   pub key:         String,
+   pub title:       String,
    pub description: Option<String>,
-   pub control: Control,
+   pub control:     Control,
    /// A text setting edited over several lines.
-   pub multiline: bool,
+   pub multiline:   bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -193,7 +209,7 @@ pub enum Control {
    Secret(String),
    Select {
       options: Vec<Choice>,
-      chosen: String,
+      chosen:  String,
    },
    Number(f64),
    Button,
@@ -371,22 +387,30 @@ pub fn install(url: &str) -> Result<installer::Installed, Error> {
       installer::Link::File { url, name } => (url, name),
       installer::Link::Gist { id, anchor } => installer::gist(url, &id, anchor.as_deref())?,
    };
-   let source = String::from_utf8(fetch::get(&download)?).map_err(|_| Error::NotUtf8 {
-      url: download.clone(),
+   let source = String::from_utf8(fetch::get(&download)?).map_err(|_| {
+      Error::NotUtf8 {
+         url: download.clone(),
+      }
    })?;
    add(name, source)
 }
 
 /// Installs a bundle the user picked from the device, named by its file name.
 pub fn install_file(file: &str, bytes: Vec<u8>) -> Result<installer::Installed, Error> {
-   let name = installer::name_of(file, &[file], None).map_err(|err| match err {
-      Error::PluginUrl { .. } => Error::PluginFile {
-         name: file.to_owned(),
-      },
-      other => other,
+   let name = installer::name_of(file, &[file], None).map_err(|err| {
+      match err {
+         Error::PluginUrl { .. } => {
+            Error::PluginFile {
+               name: file.to_owned(),
+            }
+         },
+         other => other,
+      }
    })?;
-   let source = String::from_utf8(bytes).map_err(|_| Error::NotUtf8 {
-      url: file.to_owned(),
+   let source = String::from_utf8(bytes).map_err(|_| {
+      Error::NotUtf8 {
+         url: file.to_owned(),
+      }
    })?;
    add(name, source)
 }
@@ -484,8 +508,8 @@ pub fn hook(image: &Image<'static>) -> Result<&'static GatewayRegistry, Error> {
 
 /// What [`start`] found and loaded.
 pub struct Started {
-   pub target: String,
-   pub build: Option<BuildId>,
+   pub target:  String,
+   pub build:   Option<BuildId>,
    pub plugins: Vec<String>,
 }
 
@@ -555,8 +579,10 @@ impl State {
 }
 
 fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> Error + '_ {
-   move |source| Error::Io {
-      path: path.to_owned(),
-      source,
+   move |source| {
+      Error::Io {
+         path: path.to_owned(),
+         source,
+      }
    }
 }

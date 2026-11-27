@@ -2,10 +2,17 @@
 
 use std::{
    collections::VecDeque,
-   sync::{Mutex, PoisonError},
+   sync::{
+      Mutex,
+      PoisonError,
+   },
 };
 
-use log::{Log, Metadata, Record};
+use log::{
+   Log,
+   Metadata,
+   Record,
+};
 
 const REDACTED: &str = "[redacted]";
 
@@ -17,8 +24,8 @@ static LINES: Mutex<VecDeque<Line>> = Mutex::new(VecDeque::new());
 #[derive(Clone)]
 pub struct Line {
    pub level: log::Level,
-   pub time: String,
-   pub text: String,
+   pub time:  String,
+   pub text:  String,
 }
 static SECRETS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
@@ -127,13 +134,13 @@ fn clock() -> String {
    {
       #[repr(C)]
       struct SystemTime {
-         year: u16,
-         month: u16,
-         day_of_week: u16,
-         day: u16,
-         hour: u16,
-         minute: u16,
-         second: u16,
+         year:         u16,
+         month:        u16,
+         day_of_week:  u16,
+         day:          u16,
+         hour:         u16,
+         minute:       u16,
+         second:       u16,
          milliseconds: u16,
       }
 
@@ -143,13 +150,13 @@ fn clock() -> String {
       }
 
       let mut st = SystemTime {
-         year: 0,
-         month: 0,
-         day_of_week: 0,
-         day: 0,
-         hour: 0,
-         minute: 0,
-         second: 0,
+         year:         0,
+         month:        0,
+         day_of_week:  0,
+         day:          0,
+         hour:         0,
+         minute:       0,
+         second:       0,
          milliseconds: 0,
       };
       // SAFETY: `GetLocalTime` fills the `SYSTEMTIME` struct.

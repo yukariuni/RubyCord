@@ -256,8 +256,7 @@ unsafe extern "C" fn section_detour(
             .spawn(phoenix_ui_desktop::open_devtools);
       }
       if page == RUBYCORD_PAGE {
-         let rendered =
-            std::panic::catch_unwind(|| gpui::render_rubycord_page(sret)).unwrap_or(false);
+         let rendered = std::panic::catch_unwind(|| gpui::render_rubycord_page(sret)).unwrap_or(false);
          if rendered {
             return sret;
          }

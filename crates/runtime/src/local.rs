@@ -1,6 +1,9 @@
 //! Messages shown only on this device, fed to Phoenix's own message handlers.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{
+   SystemTime,
+   UNIX_EPOCH,
+};
 
 use serde::Serialize;
 use serde_json::value::RawValue;
@@ -12,51 +15,51 @@ const EPHEMERAL: u32 = 1 << 6;
 
 #[derive(Serialize)]
 struct Author<'a> {
-   id: &'static str,
-   username: &'a str,
-   global_name: &'a str,
+   id:            &'static str,
+   username:      &'a str,
+   global_name:   &'a str,
    discriminator: &'static str,
-   avatar: Option<()>,
-   bot: bool,
-   public_flags: u32,
+   avatar:        Option<()>,
+   bot:           bool,
+   public_flags:  u32,
 }
 
 #[derive(Serialize)]
 struct LocalMessage<'a> {
-   id: &'a str,
-   nonce: &'a str,
-   channel_id: &'a str,
+   id:               &'a str,
+   nonce:            &'a str,
+   channel_id:       &'a str,
    #[serde(skip_serializing_if = "Option::is_none")]
-   guild_id: Option<&'a str>,
-   content: &'a str,
+   guild_id:         Option<&'a str>,
+   content:          &'a str,
    #[serde(rename = "type")]
-   kind: u32,
-   flags: u32,
-   tts: bool,
+   kind:             u32,
+   flags:            u32,
+   tts:              bool,
    mention_everyone: bool,
-   mentions: [(); 0],
-   mention_roles: [(); 0],
-   attachments: [(); 0],
-   embeds: &'a RawValue,
-   components: [(); 0],
-   pinned: bool,
-   timestamp: &'a str,
+   mentions:         [(); 0],
+   mention_roles:    [(); 0],
+   attachments:      [(); 0],
+   embeds:           &'a RawValue,
+   components:       [(); 0],
+   pinned:           bool,
+   timestamp:        &'a str,
    edited_timestamp: Option<()>,
-   author: Author<'a>,
+   author:           Author<'a>,
 }
 
 #[derive(Serialize)]
 struct Deleted<'a> {
-   id: &'a str,
+   id:         &'a str,
    channel_id: &'a str,
 }
 
 /// Who a local message shows as, and where.
 pub struct Options<'a> {
-   pub author: &'a str,
+   pub author:   &'a str,
    pub guild_id: Option<&'a str>,
    /// A JSON array of embed objects.
-   pub embeds: &'a RawValue,
+   pub embeds:   &'a RawValue,
 }
 
 /// Shows `content` in `channel_id` as an ephemeral message from `author` and
@@ -89,13 +92,13 @@ pub fn add(channel_id: &str, content: &str, options: &Options<'_>) -> Option<Str
       timestamp: &timestamp,
       edited_timestamp: None,
       author: Author {
-         id: "0",
-         username: options.author,
-         global_name: options.author,
+         id:            "0",
+         username:      options.author,
+         global_name:   options.author,
          discriminator: "0000",
-         avatar: None,
-         bot: true,
-         public_flags: 0,
+         avatar:        None,
+         bot:           true,
+         public_flags:  0,
       },
    };
    let json = serde_json::to_string(&message).expect("a local message serializes");

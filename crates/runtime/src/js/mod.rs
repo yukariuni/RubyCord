@@ -9,27 +9,68 @@ mod storage;
 use std::{
    borrow::Cow,
    cell::RefCell,
-   collections::{BTreeMap, BTreeSet, HashMap},
+   collections::{
+      BTreeMap,
+      BTreeSet,
+      HashMap,
+   },
    fs,
    io::ErrorKind,
 };
 
 use log::Level;
-use phoenix_sigs::registry::{EventId, GatewayRegistry};
+use phoenix_sigs::registry::{
+   EventId,
+   GatewayRegistry,
+};
 use rquickjs::{
-   CatchResultExt, CaughtError, Context, Ctx, Exception, Function, JsLifetime, Object, Runtime,
+   CatchResultExt,
+   CaughtError,
+   Context,
+   Ctx,
+   Exception,
+   Function,
+   JsLifetime,
+   Object,
+   Runtime,
    Value,
-   function::{Opt, Rest},
+   function::{
+      Opt,
+      Rest,
+   },
 };
 
 use crate::{
-   Chosen, Error, Header, Plugin, PluginInfo, STATE, Setting, State, discord, gateway, io_error,
+   Chosen,
+   Error,
+   Header,
+   Plugin,
+   PluginInfo,
+   STATE,
+   Setting,
+   State,
+   discord,
+   gateway,
+   io_error,
    js::{
-      hooks::{Hook, add_gateway_api, gateway_object},
-      http::{discord_object, start_fetch},
+      hooks::{
+         Hook,
+         add_gateway_api,
+         gateway_object,
+      },
+      http::{
+         discord_object,
+         start_fetch,
+      },
       messages::messages_object,
-      settings::{Definition, settings_object},
-      storage::{storage, stores_object},
+      settings::{
+         Definition,
+         settings_object,
+      },
+      storage::{
+         storage,
+         stores_object,
+      },
    },
 };
 
@@ -40,12 +81,12 @@ pub struct Engine {
 }
 
 struct Loaded {
-   source: String,
+   source:    String,
    /// The bundled source an installed copy replaced, put back when the copy
    /// is uninstalled.
-   bundled: Option<String>,
-   enabled: bool,
-   error: Option<String>,
+   bundled:   Option<String>,
+   enabled:   bool,
+   error:     Option<String>,
    /// Read from `home/plugins`, so the user can delete it.
    installed: bool,
 }
@@ -67,13 +108,13 @@ type ChosenMap = BTreeMap<String, BTreeMap<String, Chosen>>;
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Choices<'a> {
    #[serde(default)]
-   disabled: BTreeSet<String>,
+   disabled:     BTreeSet<String>,
    #[serde(default)]
-   enabled: BTreeSet<String>,
+   enabled:      BTreeSet<String>,
    #[serde(default)]
-   settings: Cow<'a, ChosenMap>,
+   settings:     Cow<'a, ChosenMap>,
    #[serde(default)]
-   staff: bool,
+   staff:        bool,
    #[serde(default)]
    remote_shell: bool,
 }
@@ -81,10 +122,10 @@ struct Choices<'a> {
 impl Default for Choices<'_> {
    fn default() -> Self {
       Self {
-         disabled: BTreeSet::new(),
-         enabled: BTreeSet::new(),
-         settings: Cow::Owned(BTreeMap::new()),
-         staff: false,
+         disabled:     BTreeSet::new(),
+         enabled:      BTreeSet::new(),
+         settings:     Cow::Owned(BTreeMap::new()),
+         staff:        false,
          remote_shell: false,
       }
    }
@@ -102,25 +143,25 @@ pub enum Before {
 /// Callbacks stay JS values owned by the runtime, and the only thing plugins
 /// can reach is their own `phoenix` object.
 pub struct Registry<'js> {
-   gateway: Object<'js>,
-   handles: Vec<(EventId, Object<'js>)>,
-   hooks: RefCell<HashMap<EventId, Vec<Hook<'js>>>>,
-   defined: RefCell<BTreeMap<String, Vec<Definition<'js>>>>,
+   gateway:          Object<'js>,
+   handles:          Vec<(EventId, Object<'js>)>,
+   hooks:            RefCell<HashMap<EventId, Vec<Hook<'js>>>>,
+   defined:          RefCell<BTreeMap<String, Vec<Definition<'js>>>>,
    /// Kept across unloads, so a reloaded plugin sees what the user chose.
-   chosen: RefCell<ChosenMap>,
+   chosen:           RefCell<ChosenMap>,
    /// `phoenix.onUnload` callbacks, run when the plugin is turned off,
    /// reloaded or removed.
-   unloads: RefCell<HashMap<String, Vec<Function<'js>>>>,
+   unloads:          RefCell<HashMap<String, Vec<Function<'js>>>>,
    /// The resolve and reject of each promise a worker thread will settle, by
    /// id.
-   pending: RefCell<HashMap<u64, (Function<'js>, Function<'js>)>>,
+   pending:          RefCell<HashMap<u64, (Function<'js>, Function<'js>)>>,
    /// `phoenix.discord.onRequest` interceptors, by id.
-   request_hooks: RefCell<HashMap<u64, (String, Function<'js>)>>,
+   request_hooks:    RefCell<HashMap<u64, (String, Function<'js>)>>,
    /// `phoenix.discord.onResponse` interceptors, by id.
-   response_hooks: RefCell<HashMap<u64, (String, Function<'js>)>>,
+   response_hooks:     RefCell<HashMap<u64, (String, Function<'js>)>>,
    gateway_send_hooks: RefCell<HashMap<u64, (String, Function<'js>)>>,
    /// `phoenix.messages.onSend` interceptors in registration order, by id.
-   pub interceptors: RefCell<Vec<(u64, String, Function<'js>)>>,
+   pub interceptors:   RefCell<Vec<(u64, String, Function<'js>)>>,
 }
 
 // SAFETY: every field is bound to 'js, and Changed swaps exactly that lifetime.
@@ -206,11 +247,11 @@ impl Engine {
                         .as_ref()
                         .and_then(|chosen| chosen.get(name)?.get(&definition.key));
                      Setting {
-                        key: definition.key.clone(),
-                        title: definition.title.clone(),
+                        key:         definition.key.clone(),
+                        title:       definition.title.clone(),
                         description: definition.description.clone(),
-                        control: definition.kind.current(picked),
-                        multiline: definition.multiline,
+                        control:     definition.kind.current(picked),
+                        multiline:   definition.multiline,
                      }
                   })
                   .collect();
@@ -329,16 +370,13 @@ impl Engine {
          loaded.install(source);
          loaded.enabled
       } else {
-         self.plugins.insert(
-            name.to_owned(),
-            Loaded {
-               source,
-               bundled: None,
-               enabled: true,
-               error: None,
-               installed: true,
-            },
-         );
+         self.plugins.insert(name.to_owned(), Loaded {
+            source,
+            bundled: None,
+            enabled: true,
+            error: None,
+            installed: true,
+         });
          true
       };
       if enabled {
@@ -434,10 +472,11 @@ impl Engine {
             }
             match ctx.json_stringify(result.clone())? {
                Some(json) => json.to_string(),
-               None => ctx
-                  .globals()
-                  .get::<_, Function<'_>>("String")?
-                  .call((result,)),
+               None => {
+                  ctx.globals()
+                     .get::<_, Function<'_>>("String")?
+                     .call((result,))
+               },
             }
          };
          run().catch(&ctx).map_err(js_error)
@@ -594,10 +633,12 @@ fn log_object<'js>(ctx: &Ctx<'js>, plugin: &str) -> rquickjs::Result<Object<'js>
 pub fn load_plugins(state: &'static State, bundled: Vec<Plugin>) -> Result<Vec<String>, Error> {
    let choices_path = state.choices_path();
    let choices = match fs::read(&choices_path) {
-      Ok(bytes) => serde_json::from_slice::<Choices>(&bytes).unwrap_or_else(|err| {
-         log::error!("{}: {err}", choices_path.display());
-         Choices::default()
-      }),
+      Ok(bytes) => {
+         serde_json::from_slice::<Choices>(&bytes).unwrap_or_else(|err| {
+            log::error!("{}: {err}", choices_path.display());
+            Choices::default()
+         })
+      },
       Err(err) if err.kind() == ErrorKind::NotFound => Choices::default(),
       Err(err) => return Err(io_error(&choices_path)(err)),
    };
@@ -611,22 +652,21 @@ pub fn load_plugins(state: &'static State, bundled: Vec<Plugin>) -> Result<Vec<S
    let mut plugins = bundled
       .into_iter()
       .map(|plugin| {
-         (
-            plugin.name,
-            Loaded {
-               source: plugin.source,
-               bundled: None,
-               enabled: false,
-               error: None,
-               installed: false,
-            },
-         )
+         (plugin.name, Loaded {
+            source:    plugin.source,
+            bundled:   None,
+            enabled:   false,
+            error:     None,
+            installed: false,
+         })
       })
       .collect::<BTreeMap<String, Loaded>>();
    let paths = match fs::read_dir(&dir) {
-      Ok(entries) => entries
-         .collect::<Result<Vec<_>, _>>()
-         .map_err(io_error(&dir))?,
+      Ok(entries) => {
+         entries
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(io_error(&dir))?
+      },
       Err(err) if err.kind() == ErrorKind::NotFound => Vec::new(),
       Err(err) => return Err(io_error(&dir)(err)),
    };
@@ -642,16 +682,13 @@ pub fn load_plugins(state: &'static State, bundled: Vec<Plugin>) -> Result<Vec<S
       match plugins.get_mut(name) {
          Some(loaded) => loaded.install(source),
          None => {
-            plugins.insert(
-               name.to_owned(),
-               Loaded {
-                  source,
-                  bundled: None,
-                  enabled: false,
-                  error: None,
-                  installed: true,
-               },
-            );
+            plugins.insert(name.to_owned(), Loaded {
+               source,
+               bundled: None,
+               enabled: false,
+               error: None,
+               installed: true,
+            });
          },
       }
    }

@@ -1,11 +1,22 @@
 //! `phoenix.fetch` and `phoenix.discord`.
 
-use rquickjs::{Ctx, Exception, Function, Object, Value, function::Opt};
+use rquickjs::{
+   Ctx,
+   Exception,
+   Function,
+   Object,
+   Value,
+   function::Opt,
+};
 
 use crate::{
-   discord, fetch,
+   discord,
+   fetch,
    js::{
-      background::{Settlement, in_background},
+      background::{
+         Settlement,
+         in_background,
+      },
       intercept::add_discord_hooks,
       state,
    },
@@ -35,17 +46,17 @@ pub fn response_object<'js>(
 /// A fetch-style `{method, headers, body}`. A body that is not a string is
 /// sent as JSON.
 struct Init {
-   method: String,
+   method:  String,
    headers: Vec<(String, String)>,
-   body: Option<Vec<u8>>,
+   body:    Option<Vec<u8>>,
 }
 
 impl Init {
    fn read<'js>(ctx: &Ctx<'js>, init: Option<Object<'js>>) -> rquickjs::Result<Self> {
       let mut out = Self {
-         method: "GET".to_owned(),
+         method:  "GET".to_owned(),
          headers: Vec::new(),
-         body: None,
+         body:    None,
       };
       let Some(init) = init else {
          return Ok(out);

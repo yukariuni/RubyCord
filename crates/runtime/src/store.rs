@@ -3,18 +3,29 @@
 //! Every Phoenix shares the `(k TEXT PRIMARY KEY NOT NULL, v BLOB NOT NULL)
 //! WITHOUT ROWID` schema, and the platform runs the query.
 
-#[cfg(feature = "sqlite")]
-use std::time::Duration;
+#[cfg(feature = "sqlite")] use std::time::Duration;
 use std::{
    fs,
-   path::{Path, PathBuf},
+   path::{
+      Path,
+      PathBuf,
+   },
 };
 
 #[cfg(feature = "sqlite")]
-use rusqlite::{Connection, OpenFlags, params_from_iter, types::ValueRef};
+use rusqlite::{
+   Connection,
+   OpenFlags,
+   params_from_iter,
+   types::ValueRef,
+};
 use serde::{
-   Serialize, Serializer,
-   ser::{SerializeMap, SerializeSeq},
+   Serialize,
+   Serializer,
+   ser::{
+      SerializeMap,
+      SerializeSeq,
+   },
 };
 
 /// Keeps a careless `select *` from copying a whole message table into JS.
@@ -47,7 +58,7 @@ impl Cell {
 /// A query result. Serializes as an array of objects keyed by column name.
 pub struct Rows {
    pub columns: Vec<String>,
-   pub rows: Vec<Vec<Cell>>,
+   pub rows:    Vec<Vec<Cell>>,
 }
 
 impl Rows {
@@ -216,7 +227,10 @@ impl From<rusqlite::Error> for StoreError {
 
 #[cfg(test)]
 mod tests {
-   use std::time::{Duration, SystemTime};
+   use std::time::{
+      Duration,
+      SystemTime,
+   };
 
    use super::*;
 

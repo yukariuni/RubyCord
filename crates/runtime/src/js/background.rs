@@ -1,10 +1,21 @@
 //! Promises that worker threads settle.
 
-use rquickjs::{CatchResultExt, Ctx, Exception, Value};
+use rquickjs::{
+   CatchResultExt,
+   Ctx,
+   Exception,
+   Value,
+};
 
 use crate::{
-   discord, fetch,
-   js::{Engine, Registry, drain, http::response_object},
+   discord,
+   fetch,
+   js::{
+      Engine,
+      Registry,
+      drain,
+      http::response_object,
+   },
    store,
 };
 
@@ -28,21 +39,25 @@ impl Engine {
             Settlement::Text(Ok(text)) => {
                rquickjs::String::from_str(ctx.clone(), &text).map(|text| Ok(text.into_value()))
             },
-            Settlement::Rows(Ok(rows)) => serde_json::to_string(&rows)
-               .map_err(|err| Exception::throw_internal(&ctx, &err.to_string()))
-               .and_then(|json| ctx.json_parse(json))
-               .map(Ok),
+            Settlement::Rows(Ok(rows)) => {
+               serde_json::to_string(&rows)
+                  .map_err(|err| Exception::throw_internal(&ctx, &err.to_string()))
+                  .and_then(|json| ctx.json_parse(json))
+                  .map(Ok)
+            },
             Settlement::Json(Ok(Some(json))) => ctx.json_parse(json).map(Ok),
             Settlement::Json(Ok(None)) => Ok(Ok(Value::new_null(ctx.clone()))),
             Settlement::Fetch(Err(err)) => Ok(Err(err.to_string())),
             Settlement::Discord(Err(err)) | Settlement::Text(Err(err)) => Ok(Err(err.to_string())),
             Settlement::Rows(Err(err)) | Settlement::Json(Err(err)) => Ok(Err(err.to_string())),
          };
-         let outcome = value.and_then(|value| match value {
-            Ok(value) => resolve.call::<_, ()>((value,)),
-            Err(message) => {
-               reject.call::<_, ()>((Exception::from_message(ctx.clone(), &message)?,))
-            },
+         let outcome = value.and_then(|value| {
+            match value {
+               Ok(value) => resolve.call::<_, ()>((value,)),
+               Err(message) => {
+                  reject.call::<_, ()>((Exception::from_message(ctx.clone(), &message)?,))
+               },
+            }
          });
          if let Err(err) = outcome.catch(&ctx) {
             log::error!("settling promise {id}: {err}");
