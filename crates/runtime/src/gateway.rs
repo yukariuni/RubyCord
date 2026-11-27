@@ -1,53 +1,28 @@
 use std::{
    cell::Cell,
    ffi::c_void,
-   panic::{
-      self,
-      AssertUnwindSafe,
-   },
-   slice,
-   str,
+   panic::{self, AssertUnwindSafe},
+   slice, str,
    sync::{
-      LazyLock,
-      Mutex,
-      OnceLock,
-      PoisonError,
-      atomic::{
-         AtomicBool,
-         AtomicU64,
-         AtomicUsize,
-         Ordering,
-      },
+      LazyLock, Mutex, OnceLock, PoisonError,
+      atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
    },
 };
 
 use phoenix_hook::image::Image;
 use phoenix_sigs::{
-   GATEWAY_HANDLER_FIELD,
-   GatewayEvent,
-   GatewayHandler,
-   HandlerResult,
-   REST_WORDS,
-   RawStr,
-   registry::{
-      EventId,
-      GatewayRegistry,
-   },
+   GATEWAY_HANDLER_FIELD, GatewayEvent, GatewayHandler, HandlerResult, REST_WORDS, RawStr,
+   registry::{EventId, GatewayRegistry},
 };
 
-use crate::{
-   Error,
-   STATE,
-   State,
-   js::Before,
-};
+use crate::{Error, STATE, State, js::Before};
 
 /// The registry's original handlers, in [`GatewayRegistry::iter`] order, and
 /// which events a plugin listens to.
 struct Gateway {
-   registry:  GatewayRegistry,
+   registry: GatewayRegistry,
    originals: Vec<GatewayHandler>,
-   hooked:    Vec<AtomicBool>,
+   hooked: Vec<AtomicBool>,
 }
 
 static GATEWAY: OnceLock<Gateway> = OnceLock::new();
@@ -68,9 +43,9 @@ pub enum SendAction {
 }
 
 struct SendHook {
-   id:     u64,
+   id: u64,
    plugin: String,
-   op:     u32,
+   op: u32,
 }
 
 static SEND_HOOKS: LazyLock<Mutex<Vec<SendHook>>> = LazyLock::new(Mutex::default);
@@ -158,9 +133,9 @@ thread_local! {
 /// hook can feed Phoenix another event on the same store thread.
 #[derive(Clone, Copy)]
 struct Handling {
-   rest:  [u64; REST_WORDS],
+   rest: [u64; REST_WORDS],
    store: *mut c_void,
-   ctx:   *mut c_void,
+   ctx: *mut c_void,
 }
 
 /// Points every registry entry at [`detour`].

@@ -1,29 +1,13 @@
 //! `phoenix.discord.onRequest` and `onResponse`, hooks on Phoenix's own API
 //! traffic.
 
-use std::sync::{
-   Arc,
-   Mutex,
-   PoisonError,
-   mpsc::Sender,
-};
+use std::sync::{Arc, Mutex, PoisonError, mpsc::Sender};
 
-use rquickjs::{
-   CatchResultExt,
-   Ctx,
-   Exception,
-   Function,
-   Object,
-   Value,
-};
+use rquickjs::{CatchResultExt, Ctx, Exception, Function, Object, Value};
 
 use crate::{
    discord,
-   js::{
-      Engine,
-      Registry,
-      drain,
-   },
+   js::{Engine, Registry, drain},
 };
 
 impl Engine {
@@ -157,7 +141,11 @@ fn extract_hook_body<'js>(ctx: &Ctx<'js>, value: &Value<'js>) -> Option<Vec<u8>>
 /// `onResponse`: lets a hook turn a Discord 404 into a 200 with a body of its
 /// own. Out-of-range values leave the reply's status alone.
 fn extract_hook_status(value: &Value<'_>) -> Option<i32> {
-   let status = value.as_object()?.get::<_, Value<'_>>("status").ok()?.as_int()?;
+   let status = value
+      .as_object()?
+      .get::<_, Value<'_>>("status")
+      .ok()?
+      .as_int()?;
    (100..=599).contains(&status).then_some(status)
 }
 
@@ -165,11 +153,11 @@ fn extract_hook_status(value: &Value<'_>) -> Option<i32> {
 /// handlers share one, and whichever runs first takes it.
 struct Pending {
    remaining: Vec<u64>,
-   method:    String,
-   path:      String,
-   status:    i32,
-   body:      Vec<u8>,
-   done:      Sender<(i32, Vec<u8>)>,
+   method: String,
+   path: String,
+   status: i32,
+   body: Vec<u8>,
+   done: Sender<(i32, Vec<u8>)>,
 }
 
 fn take_pending(shared: &Mutex<Option<Pending>>) -> Option<Pending> {
@@ -269,9 +257,9 @@ pub fn add_discord_hooks<'js>(
             static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
             let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let parsed = discord::RequestFilter {
-               method:        filter.get::<_, Option<String>>("method")?,
-               path_prefix:   filter.get::<_, Option<String>>("pathPrefix")?,
-               path_suffix:   filter.get::<_, Option<String>>("pathSuffix")?,
+               method: filter.get::<_, Option<String>>("method")?,
+               path_prefix: filter.get::<_, Option<String>>("pathPrefix")?,
+               path_suffix: filter.get::<_, Option<String>>("pathSuffix")?,
                path_includes: filter.get::<_, Option<String>>("pathIncludes")?,
             };
             ctx.userdata::<Registry<'js>>()
@@ -298,9 +286,9 @@ pub fn add_discord_hooks<'js>(
             static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
             let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let parsed = discord::RequestFilter {
-               method:        filter.get::<_, Option<String>>("method")?,
-               path_prefix:   filter.get::<_, Option<String>>("pathPrefix")?,
-               path_suffix:   filter.get::<_, Option<String>>("pathSuffix")?,
+               method: filter.get::<_, Option<String>>("method")?,
+               path_prefix: filter.get::<_, Option<String>>("pathPrefix")?,
+               path_suffix: filter.get::<_, Option<String>>("pathSuffix")?,
                path_includes: filter.get::<_, Option<String>>("pathIncludes")?,
             };
             ctx.userdata::<Registry<'js>>()

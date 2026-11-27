@@ -2,23 +2,11 @@
 //! download, the plugin's name, and a source the engine can run, or an error
 //! that says what to give it instead.
 
-use std::{
-   collections::BTreeMap,
-   fmt,
-};
+use std::{collections::BTreeMap, fmt};
 
-use rquickjs::{
-   CatchResultExt,
-   Context,
-   Function,
-   Runtime,
-};
+use rquickjs::{CatchResultExt, Context, Function, Runtime};
 
-use crate::{
-   Error,
-   Header,
-   fetch,
-};
+use crate::{Error, Header, fetch};
 
 /// File stems that name a build's entry point rather than the plugin.
 const ENTRY_STEMS: [&str; 4] = ["index", "main", "plugin", "bundle"];
@@ -28,13 +16,13 @@ const BUILD_DIRS: [&str; 5] = ["src", "dist", "build", "lib", "out"];
 #[derive(Debug, PartialEq, Eq)]
 pub enum Link {
    File {
-      url:  String,
+      url: String,
       name: String,
    },
    /// A gist page. Its files come from GitHub's API; `anchor` is the `#file-…`
    /// part.
    Gist {
-      id:     String,
+      id: String,
       anchor: Option<String>,
    },
 }
@@ -73,7 +61,7 @@ pub fn parse(input: &str) -> Result<Link, Error> {
             });
          }
          Ok(Link::File {
-            url:  format!(
+            url: format!(
                "https://raw.githubusercontent.com/{owner}/{repo}/{}",
                segments[3..].join("/")
             ),
@@ -90,7 +78,7 @@ pub fn parse(input: &str) -> Result<Link, Error> {
             .filter(|file| !file.is_empty())
             .ok_or_else(bad)?;
          Ok(Link::File {
-            url:  format!("https://{rest}"),
+            url: format!("https://{rest}"),
             name: name_of(input, file, segments.get(1).copied())?,
          })
       },
@@ -106,18 +94,14 @@ pub fn parse(input: &str) -> Result<Link, Error> {
       },
       // Revisions and `raw` sit between the gist and its file, so only the file
       // names it.
-      "gist.githubusercontent.com" => {
-         Ok(Link::File {
-            url:  format!("https://{rest}"),
-            name: name_of(input, &segments[segments.len().saturating_sub(1)..], None)?,
-         })
-      },
-      _ => {
-         Ok(Link::File {
-            url:  format!("https://{rest}"),
-            name: name_of(input, &segments, None)?,
-         })
-      },
+      "gist.githubusercontent.com" => Ok(Link::File {
+         url: format!("https://{rest}"),
+         name: name_of(input, &segments[segments.len().saturating_sub(1)..], None)?,
+      }),
+      _ => Ok(Link::File {
+         url: format!("https://{rest}"),
+         name: name_of(input, &segments, None)?,
+      }),
    }
 }
 
@@ -181,20 +165,23 @@ struct Gist {
 #[derive(serde::Deserialize)]
 struct GistFile {
    filename: String,
-   raw_url:  String,
+   raw_url: String,
 }
 
 /// The `.js` file of gist `id` to download, and its plugin name. A gist with
 /// several picks the one its `#file-…` anchor names.
 pub fn gist(url: &str, id: &str, anchor: Option<&str>) -> Result<(String, String), Error> {
    // GitHub's API refuses requests without a User-Agent.
-   let body = fetch::get_with(&format!("https://api.github.com/gists/{id}"), vec![
-      (
-         "Accept".to_owned(),
-         "application/vnd.github+json".to_owned(),
-      ),
-      ("User-Agent".to_owned(), "rubycord".to_owned()),
-   ])?;
+   let body = fetch::get_with(
+      &format!("https://api.github.com/gists/{id}"),
+      vec![
+         (
+            "Accept".to_owned(),
+            "application/vnd.github+json".to_owned(),
+         ),
+         ("User-Agent".to_owned(), "rubycord".to_owned()),
+      ],
+   )?;
    let gist = serde_json::from_slice::<Gist>(&body).map_err(|_| bad_url(url))?;
    let mut scripts = gist
       .files
@@ -203,11 +190,9 @@ pub fn gist(url: &str, id: &str, anchor: Option<&str>) -> Result<(String, String
       .collect::<Vec<_>>();
    let found = scripts.len();
    let chosen = match anchor.and_then(|anchor| anchor.strip_prefix("file-")) {
-      Some(anchor) => {
-         scripts.into_iter().find(|file| {
-            clean(&file.filename).is_some_and(|name| name.eq_ignore_ascii_case(anchor))
-         })
-      },
+      Some(anchor) => scripts
+         .into_iter()
+         .find(|file| clean(&file.filename).is_some_and(|name| name.eq_ignore_ascii_case(anchor))),
       None if found == 1 => scripts.pop(),
       None => None,
    };
@@ -275,7 +260,7 @@ fn module_line(line: &str) -> bool {
 /// A plugin that was installed, and what it took the place of.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Installed {
-   pub name:     String,
+   pub name: String,
    pub replaced: Replaced,
 }
 
@@ -285,7 +270,7 @@ pub enum Replaced {
    Bundled,
    Installed {
       from: Option<String>,
-      to:   Option<String>,
+      to: Option<String>,
    },
 }
 
@@ -296,11 +281,9 @@ impl Replaced {
       match previous {
          None => Self::Nothing,
          Some(previous) if !previous.installed => Self::Bundled,
-         Some(previous) => {
-            Self::Installed {
-               from: previous.header.version.clone(),
-               to:   Header::from(source).version,
-            }
+         Some(previous) => Self::Installed {
+            from: previous.header.version.clone(),
+            to: Header::from(source).version,
          },
       }
    }
@@ -408,7 +391,7 @@ mod tests {
       assert_eq!(
          parse("https://gist.github.com/someone/0123abcd#file-my_plugin-js").ok(),
          Some(Link::Gist {
-            id:     "0123abcd".to_owned(),
+            id: "0123abcd".to_owned(),
             anchor: Some("file-my_plugin-js".to_owned()),
          })
       );

@@ -42,7 +42,6 @@ Read this file before changing code. Every fact here cost someone hours to learn
 | `crates/runtime` | QuickJS plugin runtime and the `phoenix` API every platform shares. `phoenix.d.ts` is the plugin API reference. `platform.rs` is the `Platform` trait the platform crates implement. |
 | `crates/runtime/src/gateway.rs` | Gateway event hooks by swapping handler pointers in Phoenix's event registry. |
 | `crates/runtime/src/discord.rs` | `phoenix.discord`, Discord's API with Phoenix's own session. The platforms carry the requests. |
-| `crates/runtime/src/theme.rs` | Themes, not CSS: `<home>/themes/*.json` (`square`, `hide: [ids]`) merged into `Effects`, which the platform's applier turns into changes (`runtime-desktop/src/hide.rs::apply`: `Div::id` is hooked and a div whose id is listed is built with `display: none`; the gift button is patched in `composer.rs`). A watcher thread reloads on any change in the folder. |
 | `crates/runtime/src/update.rs` | Update checks and one-tap plugin updates. Off while `ASSETS` is empty. |
 | `crates/runtime/src/remote.rs` | The debug shell on `127.0.0.1:4242`, off by default on Android, switched on in Settings, RubyCord, Debug. On desktop it starts when DevTools first opens, or at launch with `RUBYCORD_DEVTOOLS` set, which `dev.ps1 -Desktop` does. The platforms add their own endpoints. |
 | `crates/inject` | `phoenix-inject.exe`, the Windows launcher used by `dev.ps1 -Desktop`: starts Discord Phoenix with `phoenix.dll` injected by APC. Not shipped; the installer patches `Discord.exe` instead. |

@@ -1,25 +1,10 @@
 //! `phoenix.settings`, the settings a plugin defines and what the user chose.
 
-use rquickjs::{
-   CatchResultExt,
-   Ctx,
-   Exception,
-   Function,
-   IntoJs,
-   Object,
-   Value,
-   object::Accessor,
-};
+use rquickjs::{CatchResultExt, Ctx, Exception, Function, IntoJs, Object, Value, object::Accessor};
 
 use crate::{
-   Choice,
-   Chosen,
-   Control,
-   js::{
-      Engine,
-      Registry,
-      drain,
-   },
+   Choice, Chosen, Control,
+   js::{Engine, Registry, drain},
 };
 
 impl Engine {
@@ -67,11 +52,9 @@ impl Engine {
                .get(plugin)?
                .iter()
                .find(|definition| definition.key == key)
-               .and_then(|definition| {
-                  match &definition.kind {
-                     Kind::Button(handler) => Some(handler.clone()),
-                     _ => None,
-                  }
+               .and_then(|definition| match &definition.kind {
+                  Kind::Button(handler) => Some(handler.clone()),
+                  _ => None,
                })
          });
          if let Some(handler) = handler
@@ -86,13 +69,13 @@ impl Engine {
 
 /// One setting a plugin defined with `phoenix.settings.define`.
 pub struct Definition<'js> {
-   pub key:         String,
-   pub title:       String,
+   pub key: String,
+   pub title: String,
    pub description: Option<String>,
-   pub kind:        Kind<'js>,
+   pub kind: Kind<'js>,
    /// A text setting edited over several lines.
-   pub multiline:   bool,
-   on_change:       Option<Function<'js>>,
+   pub multiline: bool,
+   on_change: Option<Function<'js>>,
 }
 
 /// A setting's type with its default, or a button's handler.
@@ -176,20 +159,16 @@ fn redact_secrets(registry: &Registry<'_>) {
 fn setting_kind<'js>(ctx: &Ctx<'js>, key: &str, spec: &Object<'js>) -> rquickjs::Result<Kind<'js>> {
    Ok(match spec.get::<_, String>("type")?.as_str() {
       "switch" => Kind::Switch(spec.get::<_, Option<bool>>("default")?.unwrap_or_default()),
-      "text" => {
-         Kind::Text(
-            spec
-               .get::<_, Option<String>>("default")?
-               .unwrap_or_default(),
-         )
-      },
-      "secret" => {
-         Kind::Secret(
-            spec
-               .get::<_, Option<String>>("default")?
-               .unwrap_or_default(),
-         )
-      },
+      "text" => Kind::Text(
+         spec
+            .get::<_, Option<String>>("default")?
+            .unwrap_or_default(),
+      ),
+      "secret" => Kind::Secret(
+         spec
+            .get::<_, Option<String>>("default")?
+            .unwrap_or_default(),
+      ),
       "select" => {
          let options = spec
             .get::<_, Vec<Object<'js>>>("options")?
@@ -242,7 +221,9 @@ fn define<'js>(
       definitions.push(Definition {
          title: spec.get("title")?,
          description: spec.get("description")?,
-         multiline: spec.get::<_, Option<bool>>("multiline")?.unwrap_or_default(),
+         multiline: spec
+            .get::<_, Option<bool>>("multiline")?
+            .unwrap_or_default(),
          on_change: spec.get("onChange")?,
          kind,
          key,

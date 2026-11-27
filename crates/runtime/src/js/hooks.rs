@@ -2,32 +2,18 @@
 //! `before` and `after` phases that run them.
 
 use phoenix_sigs::registry::EventId;
-use rquickjs::{
-   CatchResultExt,
-   Ctx,
-   Exception,
-   Function,
-   Object,
-   Value,
-};
+use rquickjs::{CatchResultExt, Ctx, Exception, Function, Object, Value};
 
 use crate::{
-   Error,
-   gateway,
-   js::{
-      Before,
-      Engine,
-      Registry,
-      drain,
-      js_error,
-   },
+   Error, gateway,
+   js::{Before, Engine, Registry, drain, js_error},
 };
 
 #[derive(Clone)]
 pub struct Hook<'js> {
    pub plugin: String,
    pub before: Option<Function<'js>>,
-   pub after:  Option<Function<'js>>,
+   pub after: Option<Function<'js>>,
 }
 
 impl Engine {
@@ -120,7 +106,10 @@ impl Engine {
             .and_then(|s| s.to_string().ok());
          let mut replaced = false;
          for (plugin, function) in hooks {
-            match function.call::<_, Value<'_>>((payload.clone(),)).catch(&ctx) {
+            match function
+               .call::<_, Value<'_>>((payload.clone(),))
+               .catch(&ctx)
+            {
                Ok(result) if result.as_bool() == Some(false) => {
                   return gateway::SendAction::Drop;
                },
@@ -287,9 +276,7 @@ pub fn gateway_object<'js>(ctx: &Ctx<'js>, plugin: &str) -> rquickjs::Result<Obj
       .get::<_, Function>("assign")?
       .call((Object::new(ctx.clone())?, base_gateway))?;
    add_gateway_send_api(ctx, plugin, &gateway)?;
-   object_ctor
-      .get::<_, Function>("freeze")?
-      .call((gateway,))
+   object_ctor.get::<_, Function>("freeze")?.call((gateway,))
 }
 
 pub fn add_gateway_send_api<'js>(
@@ -301,11 +288,7 @@ pub fn add_gateway_send_api<'js>(
    let on_send = Function::new(
       ctx.clone(),
       move |ctx: Ctx<'js>, op: f64, handler: Function<'js>| {
-         if !op.is_finite()
-            || op.fract() != 0.0
-            || op < 0.0
-            || op > f64::from(u32::MAX)
-         {
+         if !op.is_finite() || op.fract() != 0.0 || op < 0.0 || op > f64::from(u32::MAX) {
             return Err(Exception::throw_type(
                &ctx,
                "gateway.onSend expects a non-negative integer opcode",
@@ -385,7 +368,9 @@ mod tests {
 
    #[test]
    fn rewrites_mutates_chains_drops_and_cleans_up() {
-      let _guard = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+      let _guard = TEST_LOCK
+         .lock()
+         .unwrap_or_else(std::sync::PoisonError::into_inner);
       let engine = Engine::new(&GatewayRegistry::default()).expect("engine initializes");
 
       // blocked opcodes and bad args throw TypeError
@@ -395,17 +380,35 @@ mod tests {
       assert!(run_plugin(&engine, "t", "gateway.onSend(4.5, () => {});").is_err());
 
       // onSend is non-enumerable and gateway stays frozen
-      assert_eq!(run_plugin(&engine, "t", "return Object.isFrozen(gateway);"), Ok(true));
       assert_eq!(
-         run_plugin(&engine, "t", "return Object.keys(gateway).includes('onSend');"),
+         run_plugin(&engine, "t", "return Object.isFrozen(gateway);"),
+         Ok(true)
+      );
+      assert_eq!(
+         run_plugin(
+            &engine,
+            "t",
+            "return Object.keys(gateway).includes('onSend');"
+         ),
          Ok(false)
       );
 
       // rewrite + chain + in-place mutation
-      run_plugin(&engine, "a", "gateway.onSend(4, d => ({ ...d, self_deaf: true }));").unwrap();
-      run_plugin(&engine, "b", "gateway.onSend(4, d => { d.self_mute = true; });").unwrap();
+      run_plugin(
+         &engine,
+         "a",
+         "gateway.onSend(4, d => ({ ...d, self_deaf: true }));",
+      )
+      .unwrap();
+      run_plugin(
+         &engine,
+         "b",
+         "gateway.onSend(4, d => { d.self_mute = true; });",
+      )
+      .unwrap();
 
-      let frame = r#"{"op":4,"d":{"guild_id":"1","channel_id":"2","self_mute":false,"self_deaf":false}}"#;
+      let frame =
+         r#"{"op":4,"d":{"guild_id":"1","channel_id":"2","self_mute":false,"self_deaf":false}}"#;
       match dispatch_send(&engine, 4, frame) {
          SendAction::Replace(out) => {
             let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -418,15 +421,24 @@ mod tests {
       }
 
       // unmatched op never enters JS
-      assert_eq!(dispatch_send(&engine, 3, r#"{"op":3,"d":{}}"#), SendAction::Pass);
+      assert_eq!(
+         dispatch_send(&engine, 3, r#"{"op":3,"d":{}}"#),
+         SendAction::Pass
+      );
 
       // pure observer returns Pass
       run_plugin(&engine, "obs", "gateway.onSend(3, () => {});").unwrap();
-      assert_eq!(dispatch_send(&engine, 3, r#"{"op":3,"d":{"status":"online"}}"#), SendAction::Pass);
+      assert_eq!(
+         dispatch_send(&engine, 3, r#"{"op":3,"d":{"status":"online"}}"#),
+         SendAction::Pass
+      );
 
       // non-JSON return falls back to Pass instead of stripping d
       run_plugin(&engine, "bad", "gateway.onSend(3, () => () => {});").unwrap();
-      assert_eq!(dispatch_send(&engine, 3, r#"{"op":3,"d":{"status":"online"}}"#), SendAction::Pass);
+      assert_eq!(
+         dispatch_send(&engine, 3, r#"{"op":3,"d":{"status":"online"}}"#),
+         SendAction::Pass
+      );
 
       // returning false drops the frame
       run_plugin(&engine, "dropper", "gateway.onSend(4, () => false);").unwrap();
@@ -434,11 +446,22 @@ mod tests {
 
       // unload cleans up plugin hooks
       engine.unload("dropper");
-      assert!(matches!(dispatch_send(&engine, 4, frame), SendAction::Replace(_)));
+      assert!(matches!(
+         dispatch_send(&engine, 4, frame),
+         SendAction::Replace(_)
+      ));
 
       // remover unregisters one hook
-      run_plugin(&engine, "rem", "const off = gateway.onSend(4, () => false); off();").unwrap();
-      assert!(matches!(dispatch_send(&engine, 4, frame), SendAction::Replace(_)));
+      run_plugin(
+         &engine,
+         "rem",
+         "const off = gateway.onSend(4, () => false); off();",
+      )
+      .unwrap();
+      assert!(matches!(
+         dispatch_send(&engine, 4, frame),
+         SendAction::Replace(_)
+      ));
 
       for plugin in ["a", "b", "obs", "bad", "dropper", "rem", "t"] {
          gateway::forget_send_hooks(plugin);

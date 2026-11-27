@@ -9,12 +9,8 @@
 use std::{
    collections::BTreeMap,
    sync::{
-      Mutex,
-      PoisonError,
-      atomic::{
-         AtomicBool,
-         Ordering,
-      },
+      Mutex, PoisonError,
+      atomic::{AtomicBool, Ordering},
    },
    thread,
 };
@@ -40,7 +36,7 @@ static MARKER: &str = concat!("phoenix-version:", env!("PHOENIX_VERSION"), ";");
 
 #[derive(serde::Deserialize)]
 struct Site {
-   loader:  String,
+   loader: String,
    plugins: BTreeMap<String, u32>,
 }
 
@@ -48,9 +44,9 @@ struct Site {
 #[derive(Clone)]
 pub struct Update {
    /// The site's version, when it is newer than [`VERSION`].
-   pub loader:      Option<String>,
+   pub loader: Option<String>,
    /// Installed plugins whose code differs from the site's.
-   pub plugins:     Vec<String>,
+   pub plugins: Vec<String>,
    /// Expected CRC-32 for each plugin in [`Self::plugins`].
    pub plugin_crcs: BTreeMap<String, u32>,
 }
@@ -58,10 +54,10 @@ pub struct Update {
 /// A plugin the site offers, as `plugins/index.json` lists it.
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct Listed {
-   pub name:        String,
+   pub name: String,
    pub description: String,
    #[serde(default)]
-   pub warning:     Option<String>,
+   pub warning: Option<String>,
 }
 
 /// The site's plugin list, fetched when the install page first opens.
@@ -120,8 +116,8 @@ pub fn fetch_catalog() {
    }
    thread::spawn(|| {
       let fetched = site_get("plugins/index.json").and_then(|body| {
-            serde_json::from_slice::<Vec<Listed>>(&body).map_err(|err| err.to_string())
-         });
+         serde_json::from_slice::<Vec<Listed>>(&body).map_err(|err| err.to_string())
+      });
       *CATALOG.lock().unwrap_or_else(PoisonError::into_inner) = match fetched {
          Ok(listed) => Catalog::Loaded(listed),
          Err(err) => {
@@ -210,31 +206,29 @@ pub fn check_now() {
       return;
    }
    set_status(Some("Checking for updates...".to_owned()));
-   thread::spawn(|| {
-      match query() {
-         Ok(Some(update)) => {
-            log::info!(
-               "update available: loader {:?}, plugins {:?}",
-               update.loader,
-               update.plugins
-            );
-            finish(None);
-            if let Some(platform) = crate::platform() {
-               platform.notify(Notice::UpdateAvailable(&update));
-            }
-         },
-         Ok(None) => {
-            log::info!("up to date ({VERSION})");
-            finish(Some(format!("RubyCord {VERSION} is up to date.")));
-            crate::toast("RubyCord is up to date");
-         },
-         Err(err) => {
-            log::info!("update check: {err}");
-            let msg = format!("Update check failed: {err}");
-            finish(Some(msg.clone()));
-            crate::toast(&msg);
-         },
-      }
+   thread::spawn(|| match query() {
+      Ok(Some(update)) => {
+         log::info!(
+            "update available: loader {:?}, plugins {:?}",
+            update.loader,
+            update.plugins
+         );
+         finish(None);
+         if let Some(platform) = crate::platform() {
+            platform.notify(Notice::UpdateAvailable(&update));
+         }
+      },
+      Ok(None) => {
+         log::info!("up to date ({VERSION})");
+         finish(Some(format!("RubyCord {VERSION} is up to date.")));
+         crate::toast("RubyCord is up to date");
+      },
+      Err(err) => {
+         log::info!("update check: {err}");
+         let msg = format!("Update check failed: {err}");
+         finish(Some(msg.clone()));
+         crate::toast(&msg);
+      },
    });
 }
 

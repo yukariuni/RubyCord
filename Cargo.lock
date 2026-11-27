@@ -1697,7 +1697,7 @@ dependencies = [
 
 [[package]]
 name = "patcher"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -1714,7 +1714,7 @@ dependencies = [
 
 [[package]]
 name = "patcher-web"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "getrandom 0.2.17",
  "js-sys",
@@ -1744,7 +1744,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "phoenix-hook"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "iced-x86",
@@ -1755,7 +1755,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-inject"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "misstep",
  "phoenix-ui-desktop",
@@ -1763,7 +1763,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-loader"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "android_logger",
  "libc",
@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "crc32fast",
  "flub",
@@ -1796,7 +1796,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime-desktop"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "libc",
@@ -1812,7 +1812,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-runtime-mobile"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "jni-sys 0.4.1",
@@ -1832,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-sigs"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "memchr",
@@ -1842,7 +1842,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-ui-desktop"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "log",
@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-ui-mobile"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
  "phoenix-wire",
@@ -1860,7 +1860,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-wire"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "flub",
 ]
@@ -2204,7 +2204,7 @@ dependencies = [
 
 [[package]]
 name = "rubycord-installer"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "eframe",
  "phoenix-ui-desktop",
@@ -2381,7 +2381,7 @@ dependencies = [
 
 [[package]]
 name = "sigscan"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "misstep",
  "phoenix-hook",
@@ -2468,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "stand-in"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "phoenix-sigs",
  "serde",
@@ -2477,7 +2477,7 @@ dependencies = [
 
 [[package]]
 name = "stand-in-demo"
-version = "2026.3.0"
+version = "2026.3.1"
 dependencies = [
  "libc",
  "misstep",

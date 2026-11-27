@@ -266,10 +266,10 @@ mod tests {
       assert_eq!(kind("1.5"), Some(Kind::Number));
       assert_eq!(kind("/* c */"), Some(Kind::Comment));
       assert_eq!(kind("'é\\é'"), Some(Kind::String));
-      assert_eq!(js("\"unterminated \\"), vec![(
-         Kind::String,
-         "\"unterminated \\"
-      )]);
+      assert_eq!(
+         js("\"unterminated \\"),
+         vec![(Kind::String, "\"unterminated \\")]
+      );
    }
 
    #[test]

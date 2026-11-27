@@ -3,32 +3,16 @@
 //! user things. `phoenix-runtime-mobile` and `phoenix-runtime-desktop`
 //! implement it and pass it to [`crate::start`].
 
-use std::{
-   ffi::c_void,
-   path::Path,
-};
+use std::{ffi::c_void, path::Path};
 
 use phoenix_hook::image::Image;
-use rquickjs::{
-   Ctx,
-   Object,
-};
+use rquickjs::{Ctx, Object};
 
 use crate::{
-   discord::{
-      Authorization,
-      DiscordError,
-   },
-   fetch::{
-      FetchError,
-      Request,
-      Response,
-   },
+   discord::{Authorization, DiscordError},
+   fetch::{FetchError, Request, Response},
    remote,
-   store::{
-      Rows,
-      StoreError,
-   },
+   store::{Rows, StoreError},
    update::Update,
 };
 

@@ -16,7 +16,7 @@ Quit Discord Phoenix before either button (patching its exe needs it closed). Th
 
 **Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
 
-Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
+Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
 - Windows: after a Discord update (which replaces `Discord.exe`), press Inject again.
@@ -36,10 +36,9 @@ cargo build --release -p rubycord-installer   # target\release\rubycord-installe
 ```
 `.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with RubyCord in one step (see AGENTS.md).
 
-### Plugins and themes
+### Plugins
 
 - Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → RubyCord → Plugins.
-- There is no default theme. A theme is not CSS (Discord Phoenix has no page to style): it is a small `.json` file saying what to change, like `{ "square": true, "hide": ["composer.gift", "dm.nitro"] }`. In the Themes tab press **Import theme** and pick one. It is copied to `%LOCALAPPDATA%\DiscordPhoenix\rubycord\themes`, turned on, and can be toggled there; adding, deleting or editing files in that folder shows up live. `hide` takes `dm.nitro`, `dm.quests`, `composer.stickers`, `composer.apps` and `composer.gift`; the Themes page says which of them this Discord build can do (the gift button, the sticker button, and Nitro and Quests in the DM list; the apps button is not found yet). `square` squares RubyCord's own pages for now.
 
 ### Other platforms
 

@@ -12,15 +12,12 @@ use std::{
    ffi::c_void,
    mem::MaybeUninit,
    ptr,
-   sync::{
-      LazyLock, Mutex, OnceLock, PoisonError,
-      atomic::{AtomicBool, Ordering},
-   },
+   sync::{LazyLock, Mutex, OnceLock, PoisonError},
 };
 
 use phoenix_hook::image::Image;
 use phoenix_runtime::{
-   Chosen, Control, theme,
+   Chosen, Control,
    update::{self, Catalog, Listed},
 };
 use phoenix_sigs::desktop::{self, GpuiLayout, StyleOffsets, layout};
@@ -264,7 +261,6 @@ static SYMBOLS: OnceLock<GpuiSymbols> = OnceLock::new();
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
    Plugins,
-   Themes,
    Catalog,
    General,
 }
@@ -300,10 +296,6 @@ impl Default for UiState {
    }
 }
 
-/// Whether an enabled theme squares the corners, set at the top of each RubyCord page render for
-/// `card`.
-static SQUARE: AtomicBool = AtomicBool::new(false);
-
 static UI_STATE: LazyLock<Mutex<UiState>> = LazyLock::new(|| Mutex::new(UiState::default()));
 
 #[derive(Clone)]
@@ -323,9 +315,6 @@ enum Action {
    ToggleCatalogGroup(u8),
    ToggleStaff,
    ReloadAll,
-   ToggleTheme(String),
-   ImportTheme,
-   RefreshThemes,
    OpenDevTools,
    CheckUpdates,
    ApplyUpdates,
@@ -386,7 +375,6 @@ unsafe fn switch_callback(
       match action {
          Action::ToggleStaff => phoenix_runtime::set_staff_enabled(on),
          Action::TogglePlugin(name) => phoenix_runtime::set_enabled(&name, on),
-         Action::ToggleTheme(name) => theme::set_enabled(&name, on),
          Action::ToggleSetting { plugin, key } => {
             phoenix_runtime::set_setting(&plugin, &key, Chosen::Switch(on));
          },
@@ -456,19 +444,6 @@ unsafe extern "C" fn button_callback(
             }
          },
          Action::ReloadAll => phoenix_runtime::reload_all(),
-         Action::RefreshThemes => theme::reload(),
-         Action::ImportTheme => {
-            std::thread::spawn(|| {
-               let Some((file_name, bytes)) = phoenix_ui_desktop::pick_file("json") else {
-                  return;
-               };
-               match theme::import(&file_name, &bytes) {
-                  Ok(name) => phoenix_ui_desktop::toast(&format!("Imported theme {name}")),
-                  Err(err) => phoenix_ui_desktop::toast(&format!("Theme import failed: {err}")),
-               }
-               crate::modal::force_redraw();
-            });
-         },
          Action::OpenDevTools => phoenix_ui_desktop::open_devtools(),
          Action::CheckUpdates => update::check_now(),
          Action::ApplyUpdates => update::apply(),
@@ -793,11 +768,6 @@ impl Builder {
 
    /// Rounded bordered card container matching Discord's native Settings cards.
    fn card(&self, gap_px: f32, pad_px: f32, radius_px: f32, border_alpha: f32) -> RawDiv {
-      let radius_px = if SQUARE.load(Ordering::Relaxed) {
-         0.0
-      } else {
-         radius_px
-      };
       let mut d = self.v_stack(gap_px);
       self.style_div(&mut d, |s| {
          s.lengths(&s.at.border_widths, gpui_px(1.0));
@@ -1007,28 +977,6 @@ pub fn div_into_any_addr() -> Option<usize> {
 pub fn raw_div() -> Option<RawDiv> {
    let sym = SYMBOLS.get()?;
    Some(Builder { sym }.raw_div())
-}
-
-/// Takes a freshly built `Div` out of the layout (`Display::None`, the last of block, flex, grid
-/// and none).
-///
-/// # Safety
-///
-/// `div` points to a live `gpui::Div`, or the `Stateful<Div>` that wraps it.
-pub unsafe fn display_none(div: *mut c_void) {
-   const DISPLAY_NONE: u8 = 3;
-   let Some(sym) = SYMBOLS.get() else {
-      return;
-   };
-   // SAFETY: `div_style_mut` takes the `Div` by pointer, as `style_div` does.
-   let ptr = unsafe { (sym.div_style_mut)(div.cast()) };
-   if !ptr.is_null() {
-      let style = Style {
-         ptr,
-         at: &sym.layout.style,
-      };
-      style.set(style.at.display, DISPLAY_NONE);
-   }
 }
 
 pub fn style_div(div: &mut RawDiv, f: impl FnOnce(&Style)) {
@@ -1549,9 +1497,6 @@ pub fn render_rubycord_page(sret: *mut RawAnyElement) -> bool {
    let enabled_count = plugins.iter().filter(|p| p.enabled).count();
    let disabled_count = plugins.len().saturating_sub(enabled_count);
 
-   SQUARE.store(theme::effects().square, Ordering::Relaxed);
-   let themes = theme::list();
-
    let mut root = b.v_stack(16.0);
 
    // 1. Header + Category Tab Bar
@@ -1581,14 +1526,6 @@ pub fn render_rubycord_page(sret: *mut RawAnyElement) -> bool {
       variant_for(Tab::Plugins),
       BtnSize::Small,
       Action::SetTab(Tab::Plugins),
-   );
-   tab_bar = b.push_button(
-      tab_bar,
-      "rubycord-tab-themes",
-      &format!("Themes ({})", themes.len()),
-      variant_for(Tab::Themes),
-      BtnSize::Small,
-      Action::SetTab(Tab::Themes),
    );
    tab_bar = b.push_button(
       tab_bar,
@@ -1622,9 +1559,6 @@ pub fn render_rubycord_page(sret: *mut RawAnyElement) -> bool {
             &expanded_plugins,
             open_select.as_ref(),
          );
-      },
-      Tab::Themes => {
-         root = render_themes_tab(&b, root, &themes);
       },
       Tab::Catalog => {
          let installed: HashSet<String> = plugins.iter().map(|p| p.name.clone()).collect();
@@ -2189,86 +2123,6 @@ fn render_catalog_tab(
       },
    }
    root
-}
-
-/// What a theme does, and which of it this Discord build can't do.
-fn theme_summary(theme: &theme::Listed) -> String {
-   if let Some(error) = &theme.error {
-      return format!("Not a valid theme: {error}");
-   }
-   let mut parts = Vec::new();
-   if theme.square {
-      parts.push("square corners (RubyCord's pages only for now)".to_owned());
-   }
-   for id in &theme.hide {
-      let known = theme::HIDES.iter().any(|(known, _)| known == id);
-      parts.push(match (known, crate::hide::supports(id)) {
-         (false, _) => format!("unknown id {id}"),
-         (true, false) => format!("{id} (not supported on this Discord build yet)"),
-         (true, true) => format!("hides {id}"),
-      });
-   }
-   if parts.is_empty() {
-      "Does nothing".to_owned()
-   } else {
-      parts.join(", ")
-   }
-}
-
-fn render_themes_tab(b: &Builder, mut root: RawDiv, themes: &[theme::Listed]) -> RawDiv {
-   let ids = theme::HIDES
-      .iter()
-      .map(|(id, _)| *id)
-      .collect::<Vec<_>>()
-      .join(", ");
-   root = b.push_div(
-      root,
-      b.action_row(
-         "rubycord-themes-import",
-         "Import a theme",
-         &format!(
-            "Pick a .json theme, like {{\"square\": true, \"hide\": [\"composer.gift\"]}}. \"hide\" takes: {ids}."
-         ),
-         "Import theme",
-         BtnVariant::Secondary,
-         BtnSize::Medium,
-         Action::ImportTheme,
-      ),
-   );
-   root = b.push_div(
-      root,
-      b.action_row(
-         "rubycord-themes-refresh",
-         "Refresh themes",
-         "The list follows the themes folder by itself: files you add, delete or edit show up here within a second.",
-         "Refresh",
-         BtnVariant::Secondary,
-         BtnSize::Medium,
-         Action::RefreshThemes,
-      ),
-   );
-   let mut card = b.card(12.0, 16.0, 8.0, 0.20);
-   if themes.is_empty() {
-      if let Some(line) = b.text_line("No themes found.", ACCESSORY_MUTED, 13.0) {
-         card = b.push_div(card, line);
-      }
-   }
-   for (i, theme) in themes.iter().enumerate() {
-      if i > 0 {
-         card = b.push_div(card, b.divider());
-      }
-      card = b.push_div(
-         card,
-         b.switch_row(
-            &format!("rubycord-theme-{}", theme.name),
-            &theme.name,
-            Some(&theme_summary(theme)),
-            theme.enabled,
-            Action::ToggleTheme(theme.name.clone()),
-         ),
-      );
-   }
-   b.push_div(root, card)
 }
 
 fn render_general_tab(b: &Builder, mut root: RawDiv) -> RawDiv {

@@ -10,19 +10,11 @@
 use std::{
    collections::HashMap,
    sync::{
-      LazyLock,
-      Mutex,
-      PoisonError,
-      atomic::{
-         AtomicUsize,
-         Ordering,
-      },
+      LazyLock, Mutex, PoisonError,
+      atomic::{AtomicUsize, Ordering},
       mpsc,
    },
-   time::{
-      Duration,
-      Instant,
-   },
+   time::{Duration, Instant},
 };
 
 use crate::fetch::Response;
@@ -60,9 +52,9 @@ pub enum DiscordError {
 /// non-matching API calls never enter `QuickJS`.
 #[derive(Clone, Default)]
 pub struct RequestFilter {
-   pub method:        Option<String>,
-   pub path_prefix:   Option<String>,
-   pub path_suffix:   Option<String>,
+   pub method: Option<String>,
+   pub path_prefix: Option<String>,
+   pub path_suffix: Option<String>,
    pub path_includes: Option<String>,
 }
 
@@ -95,7 +87,7 @@ impl RequestFilter {
 }
 
 struct RequestHook {
-   pub id:     u64,
+   pub id: u64,
    pub plugin: String,
    pub filter: RequestFilter,
 }
@@ -129,7 +121,7 @@ const PER_REQUEST: [&str; 8] = [
 #[derive(Clone)]
 struct Session {
    /// Up to and including the version, like `https://discord.com/api/v9`.
-   base:    String,
+   base: String,
    headers: Vec<(String, String)>,
 }
 
@@ -138,9 +130,9 @@ static SESSION: Mutex<Option<Session>> = Mutex::new(None);
 /// A request whose response `onResponse` hooks wait for.
 pub struct InFlight {
    method: String,
-   path:   String,
-   hooks:  Vec<u64>,
-   at:     Instant,
+   path: String,
+   hooks: Vec<u64>,
+   at: Instant,
 }
 
 /// By the platform's id for the request.
@@ -206,13 +198,11 @@ pub fn observe_request(
 pub fn watch_response(method: &str, url: &str) -> Option<InFlight> {
    let path = api_path(url)?;
    let hooks = matching_response_hooks(method, path);
-   (!hooks.is_empty()).then(|| {
-      InFlight {
-         method: method.to_owned(),
-         path: path.to_owned(),
-         hooks,
-         at: Instant::now(),
-      }
+   (!hooks.is_empty()).then(|| InFlight {
+      method: method.to_owned(),
+      path: path.to_owned(),
+      hooks,
+      at: Instant::now(),
    })
 }
 
@@ -298,9 +288,9 @@ pub fn session_request(
 
 /// What [`authorize`] asks Discord for.
 pub struct Authorization {
-   pub client_id:     String,
-   pub redirect_uri:  String,
-   pub scopes:        Vec<String>,
+   pub client_id: String,
+   pub redirect_uri: String,
+   pub scopes: Vec<String>,
    pub response_type: String,
 }
 
@@ -434,9 +424,9 @@ mod tests {
    #[test]
    fn matches_request_filter() {
       let filter = RequestFilter {
-         method:        Some("GET".to_owned()),
-         path_prefix:   Some("/users/".to_owned()),
-         path_suffix:   Some("/badges".to_owned()),
+         method: Some("GET".to_owned()),
+         path_prefix: Some("/users/".to_owned()),
+         path_suffix: Some("/badges".to_owned()),
          path_includes: None,
       };
       assert!(filter.matches("get", "/users/@me/badges?with_hidden=true"));
