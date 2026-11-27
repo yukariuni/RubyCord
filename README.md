@@ -4,17 +4,36 @@ Patches Discord Phoenix (Discord's native Rust client) on Android, iOS, Windows,
 
 No root, no Xposed, and on desktop Discord's own files stay untouched.
 
-## Install
+## How to use (Windows)
 
-Build it from source (see Building), then:
+1. Install Discord Phoenix and the [Rust](https://rustup.rs) toolchain.
+2. Build the loader and the launcher:
+   ```powershell
+   $env:RUSTFLAGS = "-C target-feature=+crt-static"
+   cargo build --release -p phoenix-loader -p phoenix-inject
+   ```
+3. Quit Discord Phoenix completely (tray icon too), then run `target\release\phoenix-inject.exe` once with no arguments.
+   It installs itself to `%LOCALAPPDATA%\Ruby`, copies `phoenix.dll` from beside it, points your **Discord Phoenix** Start Menu and Desktop shortcuts at the launcher, and starts Discord with Ruby loaded.
+4. From then on, open **Discord Phoenix** from the Start Menu as usual. After rebuilding, run `phoenix-inject.exe` again to refresh the DLL.
+5. In Discord open User Settings → **Ruby**. Tabs: Plugins, Themes, Catalog, General. Ctrl+Shift+I opens DevTools.
 
-- **Windows** (x86-64): `ruby.exe path	o\phoenix.dll` installs a launcher and shortcuts to `%LOCALAPPDATA%\Ruby` and starts Discord with the loader injected. Set `RUBY_SITE` to a server that hosts `version.json` and `plugins/phoenix-windows-x86_64.dll` to make it self-update.
-- **Linux** (x86-64) and **macOS** (Apple silicon): `RUBY_SITE=<server> sh scripts/ruby-linux.sh` or `ruby-macos.sh`.
+Notes:
+- A pinned taskbar icon keeps its old target: unpin it and pin **Discord Phoenix** again from the Start Menu. If Discord's updater recreates its shortcut, run `phoenix-inject.exe` again. A `discord://` link or Windows startup entry starts Discord without Ruby.
+- `phoenix-inject.exe --uninstall` removes Ruby and points the shortcuts back at `Discord.exe`. Discord's own files are never modified.
+- The **Ruby (access gate only)** shortcut starts Discord without plugins, in case a Discord update breaks the runtime.
+- `.\scripts\dev.ps1 -Desktop` builds, bundles the plugins and restarts Discord with Ruby in one step (see AGENTS.md).
+
+### Plugins and themes
+
+- Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → Ruby → Plugins.
+- Themes are `.css` files in `%LOCALAPPDATA%\DiscordPhoenix\ruby\themes`. Toggle them in the Themes tab and press Reload after adding files. Custom properties on `:root` (`--bg`, `--surface`, `--border`, `--text`, `--muted`, `--accent`, `--radius`) restyle Ruby's own pages; the DevTools page applies every rule.
+
+### Other platforms
+
 - **Android / iOS**: `crates/patcher` patches and signs the APK or IPA (`nu scripts/phoenix.nu` on Linux).
+- **Linux / macOS**: `RUBY_SITE=<server> sh scripts/ruby-linux.sh` or `ruby-macos.sh`, against a server that hosts the loader.
 
-Ruby hosts no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
-
-After installing, open Discord → Settings → **Ruby** to toggle plugins, change their settings, install plugins from a URL or file, pick themes and edit code.
+Ruby has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
 
 ## How it works
 

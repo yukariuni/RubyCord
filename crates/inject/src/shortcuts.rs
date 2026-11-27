@@ -2,22 +2,11 @@
 //! A hidden PowerShell child is one of the dropper patterns Defender flags.
 
 use std::{
-   ffi::{
-      OsStr,
-      OsString,
-      c_void,
-   },
+   ffi::{OsStr, OsString, c_void},
    fs,
-   os::windows::ffi::{
-      OsStrExt as _,
-      OsStringExt as _,
-   },
-   path::{
-      Path,
-      PathBuf,
-   },
-   ptr,
-   slice,
+   os::windows::ffi::{OsStrExt as _, OsStringExt as _},
+   path::{Path, PathBuf},
+   ptr, slice,
 };
 
 #[repr(C)]
@@ -53,23 +42,23 @@ type SetText = unsafe extern "system" fn(*mut c_void, *const u16) -> i32;
 #[repr(C)]
 struct ShellLink {
    query_interface: unsafe extern "system" fn(*mut c_void, *const Guid, *mut *mut c_void) -> i32,
-   _add_ref:        usize,
-   release:         unsafe extern "system" fn(*mut c_void) -> u32,
-   _ids:            [usize; 4],
+   _add_ref: usize,
+   release: unsafe extern "system" fn(*mut c_void) -> u32,
+   _ids: [usize; 4],
    set_description: SetText,
-   _working_dir:    [usize; 3],
-   set_arguments:   SetText,
-   _hotkey_show:    [usize; 5],
-   set_icon:        unsafe extern "system" fn(*mut c_void, *const u16, i32) -> i32,
-   _relative:       [usize; 2],
-   set_path:        SetText,
+   _working_dir: [usize; 3],
+   set_arguments: SetText,
+   _hotkey_show: [usize; 5],
+   set_icon: unsafe extern "system" fn(*mut c_void, *const u16, i32) -> i32,
+   _relative: [usize; 2],
+   set_path: SetText,
 }
 
 /// `IPersistFile`'s vtable up to `Save`.
 #[repr(C)]
 struct PersistFile {
    _unknown: [usize; 6],
-   save:     unsafe extern "system" fn(*mut c_void, *const u16, i32) -> i32,
+   save: unsafe extern "system" fn(*mut c_void, *const u16, i32) -> i32,
 }
 
 #[link(name = "ole32")]
@@ -213,12 +202,6 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
          "Discord past the access gate, without plugins",
       ),
    ];
-   if remove {
-      for (lnk, ..) in &links {
-         let _ = fs::remove_file(lnk);
-      }
-      return Ok(());
-   }
    // SAFETY: the launcher's only thread, which never initializes COM another
    // way. It stays initialized until the process exits.
    check(
@@ -226,6 +209,23 @@ pub fn sync(local: &Path, launcher: &Path, remove: bool) -> misstep::Result<()> 
       "CoInitializeEx",
    )?;
    let icon = local.join(r"DiscordPhoenix\app\Discord.exe");
+   // shortcut: Start Menu and Desktop only. A pinned taskbar icon keeps its old target until
+   // it is pinned again from the Start Menu, and Discord's updater may recreate its shortcut,
+   // so opening the launcher again redoes this.
+   let phoenix = [
+      programs.join("Discord Phoenix.lnk"),
+      desktop.join("Discord Phoenix.lnk"),
+   ];
+   for lnk in phoenix.iter().filter(|lnk| lnk.exists()) {
+      let target = if remove { &icon } else { launcher };
+      create(lnk, target, "", "Discord Phoenix", &icon)?;
+   }
+   if remove {
+      for (lnk, ..) in &links {
+         let _ = fs::remove_file(lnk);
+      }
+      return Ok(());
+   }
    for (lnk, args, description) in &links {
       if !lnk.exists() {
          create(lnk, launcher, args, description, &icon)?;

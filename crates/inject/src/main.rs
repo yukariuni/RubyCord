@@ -15,8 +15,10 @@
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-#[cfg(windows)] mod http;
-#[cfg(windows)] mod shortcuts;
+#[cfg(windows)]
+mod http;
+#[cfg(windows)]
+mod shortcuts;
 
 #[cfg(windows)]
 fn main() {
@@ -36,40 +38,25 @@ fn main() {
 mod windows {
    use std::{
       env,
-      ffi::{
-         OsStr,
-         OsString,
-         c_void,
-      },
-      fs,
-      io,
-      os::windows::ffi::{
-         OsStrExt,
-         OsStringExt,
-      },
-      path::{
-         Path,
-         PathBuf,
-      },
+      ffi::{OsStr, OsString, c_void},
+      fs, io,
+      os::windows::ffi::{OsStrExt, OsStringExt},
+      path::{Path, PathBuf},
       process::Command,
-      ptr,
-      thread,
+      ptr, thread,
       time::Duration,
    };
 
-   use misstep::{
-      OptionExt,
-      ResultExt,
-   };
+   use misstep::{OptionExt, ResultExt};
 
    type Handle = *mut c_void;
 
    #[repr(C)]
    struct ProcessInformation {
-      process:    Handle,
-      thread:     Handle,
+      process: Handle,
+      thread: Handle,
       process_id: u32,
-      thread_id:  u32,
+      thread_id: u32,
    }
 
    const CREATE_SUSPENDED: u32 = 0x4;
@@ -396,7 +383,11 @@ mod windows {
          }
       }
 
-      set_restart_env(&launcher, explicit.as_ref().map(|_| dll.as_path()), no_runtime);
+      set_restart_env(
+         &launcher,
+         explicit.as_ref().map(|_| dll.as_path()),
+         no_runtime,
+      );
       launch(&exe, &app, &dll, &args)
    }
 
@@ -421,12 +412,7 @@ mod windows {
       }
    }
 
-   fn launch(
-      exe: &Path,
-      app: &Path,
-      dll: &Path,
-      args: &[OsString],
-   ) -> misstep::Result<()> {
+   fn launch(exe: &Path, app: &Path, dll: &Path, args: &[OsString]) -> misstep::Result<()> {
       let mut command = Vec::new();
       append_quoted(&mut command, exe.as_os_str());
       for arg in args {
@@ -439,10 +425,10 @@ mod windows {
       let mut startup = [0u64; 13];
       startup[0] = 104;
       let mut info = ProcessInformation {
-         process:    ptr::null_mut(),
-         thread:     ptr::null_mut(),
+         process: ptr::null_mut(),
+         thread: ptr::null_mut(),
          process_id: 0,
-         thread_id:  0,
+         thread_id: 0,
       };
       // SAFETY: every pointer is valid for the call and the strings are
       // NUL-terminated.
@@ -532,13 +518,18 @@ mod windows {
          fs::copy(&me, &launcher).context("copying the launcher")?;
       }
       let dll = home.join("phoenix.dll");
+      // Without a server the loader ships beside the launcher.
+      adopt(&me, &dll).context("installing the phoenix.dll beside the launcher")?;
       if let Err(err) = update(home, &dll)
          && !dll.is_file()
       {
          return Err(err.context("downloading phoenix.dll"));
       }
       if !dll.is_file() {
-         misstep::bail!("no phoenix.dll in {}: pass one as an argument or set RUBY_SITE", home.display());
+         misstep::bail!(
+            "no phoenix.dll in {}: pass one as an argument or set RUBY_SITE",
+            home.display()
+         );
       }
       // Missing shortcuts never stop Discord from starting, and a shortcut the
       // user deleted stays deleted until they run the installer again.
@@ -546,6 +537,29 @@ mod windows {
          let _ = crate::shortcuts::sync(local, &launcher, false);
       }
       Ok(dll)
+   }
+
+   /// Replaces `dll` with the `phoenix.dll` beside `launcher` when that one is newer. A running
+   /// Discord keeps the old one mapped, which Windows lets us rename but not overwrite.
+   fn adopt(launcher: &Path, dll: &Path) -> io::Result<()> {
+      let Some(beside) = launcher.parent().map(|dir| dir.join("phoenix.dll")) else {
+         return Ok(());
+      };
+      if !beside.is_file() || same_file(&beside, dll) {
+         return Ok(());
+      }
+      let modified = |path: &Path| fs::metadata(path).and_then(|meta| meta.modified());
+      if dll.is_file() && modified(&beside)? <= modified(dll)? {
+         return Ok(());
+      }
+      let old = dll.with_extension("dll.old");
+      let _ = fs::remove_file(&old);
+      if dll.is_file() {
+         fs::rename(dll, &old)?;
+      }
+      fs::copy(&beside, dll)?;
+      let _ = fs::remove_file(old);
+      Ok(())
    }
 
    fn same_file(a: &Path, b: &Path) -> bool {

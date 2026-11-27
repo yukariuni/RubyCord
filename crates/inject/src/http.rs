@@ -4,17 +4,10 @@
 use std::{
    ffi::c_void,
    fs::File,
-   io::{
-      self,
-      BufWriter,
-      Write as _,
-   },
+   io::{self, BufWriter, Write as _},
    path::Path,
    ptr,
-   time::{
-      Duration,
-      Instant,
-   },
+   time::{Duration, Instant},
 };
 
 use misstep::ResultExt as _;
@@ -128,9 +121,9 @@ pub fn download(url: &str, dest: &Path, limit: Duration) -> misstep::Result<()> 
 
 struct Target<'url> {
    secure: bool,
-   host:   &'url str,
-   port:   u16,
-   path:   &'url str,
+   host: &'url str,
+   port: u16,
+   path: &'url str,
 }
 
 impl<'url> Target<'url> {
