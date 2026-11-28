@@ -7,10 +7,11 @@ Patches Discord Phoenix (Discord's native Rust client) on Windows and Linux
 Every push to `main` builds the two downloads on the **latest** release (Releases page). Download one, quit Discord Phoenix, run it.
 
 **Windows**: run `rubycord-installer.exe`. A window opens with two buttons:
-- **Inject** drops the loader next to `Discord.exe` as `rubycord.dll` and patches `Discord.exe` to load it, the way Vencord patches Electron Discord. Every launch of Discord Phoenix then loads RubyCord — from any shortcut, a `discord://` link, anything. No launcher, no shortcut changes, no administrator rights.
+- **Inject** drops the loader next to `Discord.exe` as `rubycord.dll` and patches `Discord.exe` to load it.
 - **Un-Inject** restores `Discord.exe` to its exact original bytes and removes the loader.
 
-Quit Discord Phoenix before either button (patching its exe needs it closed). The window shows whether Discord Phoenix was found and whether RubyCord is injected, with a terminal under the buttons listing every step. (The installer is unsigned, so SmartScreen asks once: More info → Run anyway; patching voids Discord.exe's signature, which AV may flag. A Discord update replaces Discord.exe, so Inject again after one. It needs OpenGL 2, which any normal driver has.)
+Quit Discord Phoenix before either button (patching its exe needs it closed). The window shows whether Discord Phoenix was found and whether RubyCord is injected.
+A Discord update replaces Discord.exe, so Inject again after one.
 
 **Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
 
@@ -36,23 +37,7 @@ cargo build --release -p rubycord-installer   # target\release\rubycord-installe
 
 - Plugins are TypeScript in `plugins/*/src/index.ts`. Bundle them with `node web/tools/bundle-plugins.ts` (set `ESBUILD` if esbuild is not on `PATH`), or install one from a URL or file in Settings → RubyCord → Plugins.
 
-### Other platforms
-
-- **Android / iOS**: `crates/patcher` patches and signs the APK or IPA (`nu scripts/phoenix.nu` on Linux).
-- **macOS**: `RUBYCORD_SITE=<server> sh scripts/rubycord-macos.sh`, against a server that hosts the loader. No CI build yet.
-
 RubyCord has no website or update server. Update checks and the plugin catalog stay off until `ASSETS` in `crates/runtime/src/update.rs` names one.
-
-## Versions
-
-`YEAR.MAJOR.MINOR`, like `2026.1.0`: the year, then a number that goes up for a major update (and restarts the minor number at 0), then a number for minor updates, 0 to 999. It lives in `version` under `[workspace.package]` in `Cargo.toml` (Cargo wants no leading zeros, so it is `2026.1.0`, not `2026.1.00`). The release, the Windows exe's file properties and Settings → RubyCord all show it.
-
-## How it works
-
-- **Unlock**: the access gate check in Phoenix's native binary is located by strings and code shape rather than fixed offsets and patched to allow startup.
-- **Loading**: `crates/loader` builds the injected library (`libplm.so` on Android via renamed `DT_NEEDED`, a dylib on iOS, `phoenix.dll` on Windows, `libphoenix.so` via `LD_PRELOAD` on Linux, and `libphoenix.dylib` via `DYLD_INSERT_LIBRARIES` on macOS).
-- **Hooks**: gateway events are hooked by walking Phoenix's event registry by name and swapping handler pointers. Mobile drives UI through Phoenix's Rust/native UI-op bridge (using [sunhook](https://github.com/sunbird-tools/sunhook) for inline hooks on Android and vtable swaps on iOS); desktop hooks GPUI builders, `libdiscord/crates/http` vtables, and native settings directly.
-- **Signing**: Android builds are signed with the public key in `crates/patcher/keys/` (APK Signature Scheme v3) so updates install over each other without losing login state.
 
 ## Plugins
 
@@ -100,25 +85,11 @@ The bundled plugins live in `plugins/*/src/index.ts`. `node web/tools/bundle-plu
 
 ## Building
 
-- **Android (Linux with Nix)**:
-
-  ```sh
-  nix develop
-  nu scripts/phoenix.nu base.apk config.arm64_v8a.apk config.xxhdpi.apk config.en.apk
-  ```
-
-  Pass `config.armeabi_v7a.apk` in place of the arm64 split for a 32-bit phone. This builds the loader and patcher, bundles the plugins, patches the splits, and installs them with `adb`.
-
-- **Android (Windows)**: `.\scripts\dev.ps1` (requires `cargo-ndk`, Android SDK/NDK, and a JDK).
 - **Windows desktop**: `.\scripts\dev.ps1 -Desktop` for the dev loop, or `cargo build --release -p phoenix-loader -p phoenix-inject` for `phoenix.dll` and the launcher.
 - **Linux desktop**: `cargo build --release -p phoenix-loader` (`target/release/libphoenix.so`).
 - **macOS desktop**: `cargo build --release -p phoenix-loader` (`target/release/libphoenix.dylib`).
-- **iOS**: built on macOS with Xcode for `aarch64-apple-ios` (see `.github/workflows/ios.yml`).
 - **Plugins & site assets**: `node web/tools/bundle-plugins.ts` and `nu scripts/site.nu web`.
 
 
-## Agentic development
-
-If you're working on this repo with a coding agent, point it at [AGENTS.md](AGENTS.md) first. It documents the crate layout, build/debug-shell workflows, signing and privacy rules, and code style conventions.
 
 Not affiliated with Discord.
