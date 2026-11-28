@@ -1,8 +1,6 @@
 # RubyCord
 
-Patches Discord Phoenix (Discord's native Rust client) on Android, iOS, Windows, Linux, and macOS so it opens without the access gate, and injects a QuickJS plugin runtime. TypeScript plugins can hook gateway events and Discord API requests/responses, add UI buttons, decorations, message actions and slash commands, and get their own settings pages inside Discord.
-
-No root, no Xposed, and on desktop Discord's own files stay untouched.
+Patches Discord Phoenix (Discord's native Rust client) on Windows and Linux
 
 ## How to use
 
@@ -15,8 +13,6 @@ Every push to `main` builds the two downloads on the **latest** release (Release
 Quit Discord Phoenix before either button (patching its exe needs it closed). The window shows whether Discord Phoenix was found and whether RubyCord is injected, with a terminal under the buttons listing every step. (The installer is unsigned, so SmartScreen asks once: More info → Run anyway; patching voids Discord.exe's signature, which AV may flag. A Discord update replaces Discord.exe, so Inject again after one. It needs OpenGL 2, which any normal driver has.)
 
 **Linux**: `chmod +x rubycord-installer-linux && ./rubycord-installer-linux`. It finds Discord Phoenix's AppImage (or pass its path as an argument) and adds a **RubyCord** entry to your app menu.
-
-Then in Discord open User Settings → **RubyCord**. Tabs: Plugins, Catalog, General. Ctrl+Shift+I opens DevTools.
 
 Notes:
 - Windows: after a Discord update (which replaces `Discord.exe`), press Inject again.
