@@ -88,7 +88,6 @@ The bundled plugins live in `plugins/*/src/index.ts`. `node web/tools/bundle-plu
 - **Windows desktop**: `.\scripts\dev.ps1 -Desktop` for the dev loop, 
 or `cargo build --release -p phoenix-loader -p phoenix-inject` for `phoenix.dll` and the launcher.
 - **Linux desktop**: `cargo build --release -p phoenix-loader` (`target/release/libphoenix.so`).
-- **macOS desktop**: `cargo build --release -p phoenix-loader` (`target/release/libphoenix.dylib`).
 - **Plugins & site assets**: `node web/tools/bundle-plugins.ts` and `nu scripts/site.nu web`.
 
 
